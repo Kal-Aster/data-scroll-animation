@@ -339,6 +339,11 @@ class ScrollParent {
     }
     refresh(): ScrollParent {
         this._lastPosition = null;
+        this._needsRefresh = true;
+        return this;
+    }
+    _refreshParents(): void {
+        this._needsRefresh = false;
         this._parents = [];
         let el: Element | null = this.el;
         while (true) {
@@ -351,13 +356,13 @@ class ScrollParent {
             }
             el = el.parentElement;
         }
-        return this;
     }
     children: ScrollObject[] = [];
     trigger: number = 0;
     topOffset: number = 0;
     bottomOffset: number = 0;
     _lastPosition: FramePosition | null = null;
+    _needsRefresh: boolean = true;
     _computedStyle: CSSStyleDeclaration;
     _parents: HTMLElement[] = [];
     _getRectTop(): number {
@@ -375,6 +380,9 @@ class ScrollParent {
     render(renders: [any, string, string|any[]][], force: boolean = false): [any, string, string|any[]][] {
         if (this.children.length === 0 || (this.el.clientHeight === 0 && this.el.clientWidth === 0)) {
             return renders;
+        }
+        if (this._needsRefresh) {
+            this._refreshParents();
         }
         // const rect: DOMRect = this.el.getBoundingClientRect();
         // const rectTop: number = rect.top;
