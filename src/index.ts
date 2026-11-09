@@ -139,16 +139,18 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
         prev[prev.length - 1]+= current;
         return prev;
     }, [""] as string[]);
-    function constructString(values: number[]): string {
+    function constructString(values: number[], nextValues: number[] | null, percentage: number): string {
         let constructedString: string = "";
-        let index = 0;
         const indexesLength = indexes.length;
-        for (let i = 0; i < indexesLength; i++) {
-            constructedString += staticStringArray[index] + values[i].toString();
-            index++;
+        for (let valueIndex = 0; valueIndex < indexesLength; valueIndex++) {
+            let value: number = values[valueIndex];
+            if (nextValues !== null) {
+                value = value + ((nextValues[valueIndex] - value) * percentage);
+            }
+            constructedString += staticStringArray[valueIndex] + value.toString();
         }
-        if (index < staticStringArray.length) {
-            constructedString += staticStringArray[index];
+        if (indexesLength < staticStringArray.length) {
+            constructedString += staticStringArray[indexesLength];
         }
         return constructedString;
     }
@@ -158,12 +160,12 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
                 if (beforeValue != null) {
                     return beforeValue;
                 }
-                return constructString(frameValues[0]);
+                return constructString(frameValues[0], null, 0);
             } else if (frameNumber === "after") {
                 if (afterValue != null) {
                     return afterValue;
                 }
-                return constructString(frameValues[frameValues.length - 1]);
+                return constructString(frameValues[frameValues.length - 1], null, 0);
             }
             frameNumber = Math.min(Math.max(0, frameNumber), 1);
             const index: number = getNearestLeftIndexOf(frameNumber);
@@ -171,24 +173,12 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
                 return "";
             }
             if (index === frameNumbers.length - 1) {
-                return constructString(frameValues[index]);
+                return constructString(frameValues[index], null, 0);
             }
             const left: number = frameNumbers[index];
             const right: number = frameNumbers[index + 1];
             const perc: number = (frameNumber-left)/(right-left);
-            const frameValue = frameValues[index];
-            const nextFrameValue = frameValues[index + 1];
-            const indexesLength = indexes.length;
-            let computedString: string = "";
-            for (let valueIndex = 0; valueIndex < indexesLength; valueIndex++) {
-                const value = frameValue[valueIndex];
-                const nextValue: number = nextFrameValue[valueIndex];
-                computedString += staticStringArray[valueIndex] + (value + ((nextValue - value) * perc)).toString();
-            }
-            if (indexesLength < staticStringArray.length) {
-                computedString += staticStringArray[indexesLength];
-            }
-            return computedString;
+            return constructString(frameValues[index], frameValues[index + 1], perc);
         },
         needUpdateAt
     };
