@@ -59,6 +59,25 @@ ScrollAnimation.add(document.querySelector("#animation")) // adds only the #anim
 
 ScrollAnimation.remove(document.querySelector("#element")) // removes only the #element element
 ```
+
+### Render method
+By default animations are rendered on every animation frame, even when the page is still.
+`setMethod` switches to rendering only when something can have moved a parent:
+```js
+ScrollAnimation.setMethod(ScrollAnimation.METHOD.EVENTS); // render on events
+ScrollAnimation.setMethod(ScrollAnimation.METHOD.ANIMATION_FRAME); // render every frame (default)
+```
+With `METHOD.EVENTS` a render is scheduled on the next frame after:
+- scroll of the page or of any inner scrollable container;
+- resize of the window;
+- resize of a parent or of the whole document (for example content above a parent that grows or shrinks).
+
+A parent that moves without any of these is not detected: for example inside a fixed-height scrollable container, when an element above the parent changes height or the `margin-top` of the parent changes, or in the page when an element above the parent grows and another one shrinks by the same amount.
+In these cases call `requestRender` after the change:
+```js
+ScrollAnimation.requestRender(); // schedules a render on the next frame, does nothing with METHOD.ANIMATION_FRAME
+```
+
 ## Development
 `npm run build`
 >Builds `dist/` (UMD, ES module and type declarations)
