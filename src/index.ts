@@ -9,7 +9,11 @@ type AnimatedProperty = {
     key: string,
     isFunction: boolean,
     // null for the functions without keyframes
-    compute: ((frame: FramePosition) => string) | null
+    compute: ((frame: FramePosition) => string) | null,
+    needUpdateAt: NeedUpdateAt,
+    constants: boolean,
+    // last value queued for the constants keys, it's reset on refresh as the properties are rebuilt
+    lastWrittenValue: string | null
 };
 
 function nullableMin(first: number | null, second: number | null): number | null {
@@ -54,9 +58,11 @@ function haveSameShape(staticParts: string[], otherStaticParts: string[]): boole
         staticParts.every((staticPart, index) => staticPart === otherStaticParts[index]);
 }
 
+// constants: the computed value only changes when passing from a keyframe to another
 function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
     compute: (frame: FramePosition) => string,
-    needUpdateAt: NeedUpdateAt
+    needUpdateAt: NeedUpdateAt,
+    constants: boolean
  } {
     // fixed parts of the first keyframe: the keyframes are interpolated only if they all match it
     let shape: string[] | null = null;
@@ -140,7 +146,8 @@ function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
                     }
                     return frames[index][1];
                 },
-                needUpdateAt
+                needUpdateAt,
+                constants: true
             };
         }
     }
@@ -154,7 +161,8 @@ function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
                 }
                 return "";
             },
-            needUpdateAt: { before: needUpdateAt.before, start: null, end: null, after: needUpdateAt.after }
+            needUpdateAt: { before: needUpdateAt.before, start: null, end: null, after: needUpdateAt.after },
+            constants: true
         };
     }
     // extrapolating needs a segment to extend, otherwise the flag is ignored
@@ -215,8 +223,25 @@ function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
             const progress: number = (frameNumber-left)/(right-left);
             return constructString(frameValues[index], frameValues[index + 1], progress);
         },
-        needUpdateAt
+        needUpdateAt,
+        constants: false
     };
+}
+
+// the value doesn't change between the last rendered frame and this one
+// when both are outside the update range on the same side
+function canSkipRender(frame: FramePosition, lastRenderFrame: FramePosition | null, needUpdateAt: NeedUpdateAt): boolean {
+    return (
+        lastRenderFrame != null &&
+        frame !== "before" && frame !== "after" &&
+        lastRenderFrame !== "before" &&
+        lastRenderFrame !== "after" &&
+        (
+            needUpdateAt.start == null || needUpdateAt.end == null ||
+            (frame < needUpdateAt.start && lastRenderFrame < needUpdateAt.start) ||
+            (frame > needUpdateAt.end && lastRenderFrame > needUpdateAt.end)
+        )
+    );
 }
 
 const SCROLL_OBJECT: unique symbol = Symbol("scroll-object");
@@ -247,7 +272,7 @@ class ScrollObject {
                 continue;
             }
             const hasFrames: boolean = frames[key].length > 0;
-            const { compute, needUpdateAt } = computeFrames(frames[key], extrapolatedKeys[key] === true);
+            const { compute, needUpdateAt, constants } = computeFrames(frames[key], extrapolatedKeys[key] === true);
             if (
                 isFunction &&
                 !needUpdateAt.before && needUpdateAt.start == null &&
@@ -273,7 +298,10 @@ class ScrollObject {
                 accessor,
                 key: lastKey,
                 isFunction: isFunction != null,
-                compute: isFunction && !hasFrames ? null : compute
+                compute: isFunction && !hasFrames ? null : compute,
+                needUpdateAt,
+                constants,
+                lastWrittenValue: null
             });
 
             this._needUpdateAt.before = this._needUpdateAt.before || needUpdateAt.before;
@@ -294,23 +322,18 @@ class ScrollObject {
         ) {
             return renders;
         }
-        const { start, end } = this._needUpdateAt;
-        if (
-            this._lastRenderFrame != null &&
-            frame !== "before" && frame !== "after" &&
-            this._lastRenderFrame !== "before" &&
-            this._lastRenderFrame !== "after" &&
-            (
-                start == null || end == null ||
-                (frame < start && this._lastRenderFrame < start) ||
-                (frame > end && this._lastRenderFrame > end)
-            )
-        ) {
+        if (canSkipRender(frame, this._lastRenderFrame, this._needUpdateAt)) {
             return renders;
         }
+        const lastRenderFrame = this._lastRenderFrame;
         this._lastRenderFrame = frame;
         for (let frameIndex = this._frames.length - 1; frameIndex >= 0; frameIndex--) {
-            const { accessor, key, isFunction, compute } = this._frames[frameIndex];
+            const animatedProperty = this._frames[frameIndex];
+            const { accessor, key, isFunction, compute } = animatedProperty;
+            // functions are always called
+            if (!isFunction && canSkipRender(frame, lastRenderFrame, animatedProperty.needUpdateAt)) {
+                continue;
+            }
             const object = accessor();
             if (object == null) {
                 continue;
@@ -322,6 +345,14 @@ class ScrollObject {
                     frame,
                     ...compute(frame).split(",").map(argument => argument.trim()).filter(argument => argument !== "")
                 ]]);
+            } else if (animatedProperty.constants) {
+                const value = compute(frame);
+                if (value === animatedProperty.lastWrittenValue) {
+                    continue;
+                }
+                // every queued render is applied, so the value can be considered written
+                animatedProperty.lastWrittenValue = value;
+                renders.push([object, key, value]);
             } else {
                 renders.push([object, key, compute(frame)]);
             }
