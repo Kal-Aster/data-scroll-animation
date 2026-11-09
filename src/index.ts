@@ -225,22 +225,15 @@ class ScrollObject {
                 needUpdateAt[3] = true;
             }
             const keyLength = splitKey.length;
-            let accessor: () => any;
-            // the element and its style never change: other paths can be reassigned, so they are walked at every render
-            if (keyLength === 0 || (keyLength === 1 && splitKey[0] === "style")) {
-                const target: any = keyLength === 0 ? this.el : this.el.style;
-                accessor = () => target;
-            } else {
-                accessor = () => {
-                    let lastObject: any = this.el;
-                    for (let i = 0; i < keyLength; i++) {
-                        if (lastObject == null) {
-                            return null;
-                        }
-                        lastObject = lastObject[splitKey[i]];
+            const accessor: () => any = () => {
+                let lastObject: any = this.el;
+                for (let i = 0; i < keyLength; i++) {
+                    if (lastObject == null) {
+                        return null;
                     }
-                    return lastObject;
-                };
+                    lastObject = lastObject[splitKey[i]];
+                }
+                return lastObject;
             }
             this._frames.push([accessor, lastKey, isFunction != null, isFunction && !hasFrames ? null : compute]);
 
