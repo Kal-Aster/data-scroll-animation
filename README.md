@@ -33,6 +33,21 @@ The animation begins at `start - topOffset` and ends at `end + bottomOffset`
 >
 >`value` is linearly interpolated between frames
 special `frame`s are "before" and "after"
+>
+>Before the first frame and after the last one the value of the nearest frame is kept
+
+`data-scroll-(property)-extrapolate`
+>Extends the first and the last interpolation segments of `property` up to frame 0 and frame 1 instead of keeping the nearest value
+>
+>The attribute value is ignored. It needs at least two numeric frames and is ignored when the values can't be interpolated
+```html
+<div
+    data-scroll-style.top-0.2="10px"
+    data-scroll-style.top-0.8="40px"
+    data-scroll-style.top-extrapolate
+></div>
+<!-- top is 0px at frame 0, 5px at 0.1, 45px at 0.9 and 50px at 1 -->
+```
 
 `data-scroll-(method)()`
 >Calls `method` every frame with frame number as first and only argument `method(frame: number): number`

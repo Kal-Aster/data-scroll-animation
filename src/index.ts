@@ -1,7 +1,6 @@
-const EXTRAPOLATE: unique symbol = Symbol("extrapolate");
 type FramePosition = number | "before" | "after";
 
-function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][]): {
+function computeFrames(frames: [ FramePosition, string ][], extrapolate: boolean = false): {
     compute: (frame: FramePosition) => string,
     needUpdateAt: [ boolean, number | null, number | null, boolean ]
  } {
@@ -43,12 +42,7 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
             return result;
         });
         frames.forEach(frame => {
-            if (frame[1] === EXTRAPOLATE) {
-                if (frame[0] !== "after" && frame[0] !== "before") {
-                    frameNumbers.push(frame[0])
-                }
-                return;
-            } else if (frame[0] === "after") {
+            if (frame[0] === "after") {
                 afterValue = frame[1];
                 needUpdateAt[3] = true;
                 return;
@@ -102,18 +96,18 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
                         if (beforeValue != null) {
                             return beforeValue;
                         }
-                        return frames[0][1] as string;
+                        return frames[0][1];
                     } else if (frameNumber === "after") {
                         if (afterValue != null) {
                             return afterValue;
                         }
-                        return frames[frames.length - 1][1] as string;
+                        return frames[frames.length - 1][1];
                     }
                     const index: number = getNearestLeftIndexOf(frameNumber);
                     if (index === -1) {
                         return "";
                     }
-                    return frames[index][1] as string;
+                    return frames[index][1];
                 },
                 needUpdateAt
             };
@@ -131,6 +125,13 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
             },
             needUpdateAt: [needUpdateAt[0], null, null, needUpdateAt[3]]
         };
+    }
+    // extrapolating needs a segment to extend, otherwise the flag is ignored
+    const extrapolating: boolean = extrapolate && frameNumbers.length >= 2;
+    if (extrapolating) {
+        // values change over the whole range, not only between the keyframes
+        needUpdateAt[1] = 0;
+        needUpdateAt[2] = 1;
     }
     const staticStringArray: string[] = staticString!.split("").reduce((prev, current, index) => {
         if (indexes.some(i => i === index)) {
@@ -168,12 +169,21 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
                 return constructString(frameValues[frameValues.length - 1], null, 0);
             }
             frameNumber = Math.min(Math.max(0, frameNumber), 1);
-            const index: number = getNearestLeftIndexOf(frameNumber);
+            let index: number = getNearestLeftIndexOf(frameNumber);
             if (index === -1) {
                 return "";
             }
-            if (index === frameNumbers.length - 1) {
-                return constructString(frameValues[index], null, 0);
+            if (frameNumber < frameNumbers[0]) {
+                // before the first keyframe: keep the first value or extend the first segment
+                if (!extrapolating) {
+                    return constructString(frameValues[0], null, 0);
+                }
+            } else if (index === frameNumbers.length - 1) {
+                // after the last keyframe: keep the last value or extend the last segment
+                if (!extrapolating) {
+                    return constructString(frameValues[index], null, 0);
+                }
+                index--;
             }
             const left: number = frameNumbers[index];
             const right: number = frameNumbers[index + 1];
@@ -196,10 +206,10 @@ declare global {
 }
 
 class ScrollObject {
-    constructor(readonly el: HTMLElement, frames: { [key: string]: [FramePosition, string][] }) {
-        this.refresh(frames);
+    constructor(readonly el: HTMLElement, frames: { [key: string]: [FramePosition, string][] }, extrapolatedKeys: { [key: string]: boolean } = {}) {
+        this.refresh(frames, extrapolatedKeys);
     }
-    refresh(frames: { [key: string]: [FramePosition, string][] }): ScrollObject {
+    refresh(frames: { [key: string]: [FramePosition, string][] }, extrapolatedKeys: { [key: string]: boolean } = {}): ScrollObject {
         this.el[SCROLL_OBJECT] = this;
         this._frames = [];
         for (let key in frames) {
@@ -212,7 +222,7 @@ class ScrollObject {
                 continue;
             }
             const hasFrames: boolean = frames[key].length > 0;
-            const { compute, needUpdateAt } = computeFrames(frames[key]);
+            const { compute, needUpdateAt } = computeFrames(frames[key], extrapolatedKeys[key] === true);
             if (isFunction && needUpdateAt.every((value, index) => {
                 if (index === 0 || index === 3) {
                     return value === false;
@@ -474,7 +484,8 @@ function getRefreshedParent(element: HTMLElement): ScrollParent {
 }
 
 function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = true): void {
-    let scrollOptions: { [key: string]: [FramePosition, string | typeof EXTRAPOLATE][] } | null = null;
+    let scrollOptions: { [key: string]: [FramePosition, string][] } | null = null;
+    const extrapolatedKeys: { [key: string]: boolean } = {};
     Array.prototype.forEach.call(element.attributes, (attr: Attr) => {
         if (!attr.name.match(/^data-scroll[\-\.]/)) {
             return;
@@ -524,9 +535,8 @@ function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = tr
                 } else if (dataSplit[1] === "after") {
                     scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([ [ "after", attr.value ] ]);
                 } else if (dataSplit[1] === "extrapolate") {
-                    scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([
-                        [ 0, EXTRAPOLATE ], [ 1, EXTRAPOLATE ]
-                    ]);
+                    // the attribute value is ignored
+                    extrapolatedKeys[propertyName] = true;
                 }
             }
         }
@@ -534,9 +544,9 @@ function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = tr
     if (scrollOptions != null) {
         element[SCROLL_PARENT] = parent;
         if (element[SCROLL_OBJECT]) {
-            element[SCROLL_OBJECT]!.refresh(scrollOptions);
+            element[SCROLL_OBJECT]!.refresh(scrollOptions, extrapolatedKeys);
         } else {
-            parent.children.push(new ScrollObject(element, scrollOptions));
+            parent.children.push(new ScrollObject(element, scrollOptions, extrapolatedKeys));
         }
     }
     if (subtree) {
