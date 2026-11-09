@@ -139,16 +139,18 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
         prev[prev.length - 1]+= current;
         return prev;
     }, [""] as string[]);
-    function constructString(values: number[]): string {
+    function constructString(values: number[], nextValues: number[] | null, percentage: number): string {
         let constructedString: string = "";
-        let index = 0;
         const indexesLength = indexes.length;
-        for (let i = 0; i < indexesLength; i++) {
-            constructedString += staticStringArray[index] + values[i].toString();
-            index++;
+        for (let valueIndex = 0; valueIndex < indexesLength; valueIndex++) {
+            let value: number = values[valueIndex];
+            if (nextValues !== null) {
+                value = value + ((nextValues[valueIndex] - value) * percentage);
+            }
+            constructedString += staticStringArray[valueIndex] + value.toString();
         }
-        if (index < staticStringArray.length) {
-            constructedString += staticStringArray[index];
+        if (indexesLength < staticStringArray.length) {
+            constructedString += staticStringArray[indexesLength];
         }
         return constructedString;
     }
@@ -158,12 +160,12 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
                 if (beforeValue != null) {
                     return beforeValue;
                 }
-                return constructString(frameValues[0]);
+                return constructString(frameValues[0], null, 0);
             } else if (frameNumber === "after") {
                 if (afterValue != null) {
                     return afterValue;
                 }
-                return constructString(frameValues[frameValues.length - 1]);
+                return constructString(frameValues[frameValues.length - 1], null, 0);
             }
             frameNumber = Math.min(Math.max(0, frameNumber), 1);
             const index: number = getNearestLeftIndexOf(frameNumber);
@@ -171,21 +173,12 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
                 return "";
             }
             if (index === frameNumbers.length - 1) {
-                return constructString(frameValues[index]);
+                return constructString(frameValues[index], null, 0);
             }
             const left: number = frameNumbers[index];
             const right: number = frameNumbers[index + 1];
             const perc: number = (frameNumber-left)/(right-left);
-            const computedValues: number[] = [];
-            const frameValue = frameValues[index];
-            const nextFrameValue = frameValues[index + 1];
-            const frameValueLength = frameValue.length;
-            for (let v_index = 0; v_index < frameValueLength; v_index++) {
-                const value = frameValue[v_index];
-                const nextValue: number = nextFrameValue[v_index];
-                computedValues.push(value + ((nextValue - value) * perc));
-            }
-            return constructString(computedValues);
+            return constructString(frameValues[index], frameValues[index + 1], perc);
         },
         needUpdateAt
     };
@@ -218,6 +211,7 @@ class ScrollObject {
             if (!isValid) {
                 continue;
             }
+            const hasFrames: boolean = frames[key].length > 0;
             const { compute, needUpdateAt } = computeFrames(frames[key]);
             if (isFunction && needUpdateAt.every((value, index) => {
                 if (index === 0 || index === 3) {
@@ -231,17 +225,17 @@ class ScrollObject {
                 needUpdateAt[3] = true;
             }
             const keyLength = splitKey.length;
-            const accessor: () => [ any, string ]= () => {
+            const accessor: () => any = () => {
                 let lastObject: any = this.el;
                 for (let i = 0; i < keyLength; i++) {
                     if (lastObject == null) {
-                        return [null, ""];
+                        return null;
                     }
                     lastObject = lastObject[splitKey[i]];
                 }
-                return [lastObject, lastKey];
+                return lastObject;
             }
-            this._frames.push([accessor, isFunction != null, compute]);
+            this._frames.push([accessor, lastKey, isFunction != null, isFunction && !hasFrames ? null : compute]);
 
             this._needUpdateAt[0] = this._needUpdateAt[0] || needUpdateAt[0];
             if (
@@ -270,8 +264,8 @@ class ScrollObject {
     }
     _needUpdateAt: [boolean, number | null, number | null, boolean] = [false, null, null, false];
     // _frames: { [key: string]: (frame: FramePosition) => string } = {};
-    // [ accessor => [object, key], isFunction, computer ]
-    _frames: [ () => [any, string], boolean, (frame: FramePosition) => string ][] = [];
+    // [ accessor => object, key, isFunction, computer (null for functions without keyframes) ]
+    _frames: [ () => any, string, boolean, ((frame: FramePosition) => string) | null ][] = [];
     _lastRenderFrame: FramePosition | null = null;
     render(frame: FramePosition, renders: [any, string, string|any[]][], force: boolean = false): [any, string, string|any[]][] {
         if (!force &&
@@ -298,14 +292,14 @@ class ScrollObject {
         this._lastRenderFrame = frame;
         for (let i = this._frames.length - 1; i >= 0; i--) {
             const currentFrame = this._frames[i];
-            const accessor = currentFrame[0], isFunction = currentFrame[1], compute = currentFrame[2];
-            const accessorResult = accessor();
-            const object = accessorResult[0];
+            const accessor = currentFrame[0], key = currentFrame[1], isFunction = currentFrame[2], compute = currentFrame[3];
+            const object = accessor();
             if (object == null) {
                 continue;
             }
-            const key = accessorResult[1];
-            if (isFunction) {
+            if (compute == null) {
+                renders.push([object, key, [frame]]);
+            } else if (isFunction) {
                 renders.push([object, key, [
                     frame,
                     ...compute(frame).split(",").map(t => t.trim()).filter(t => t !== "")
