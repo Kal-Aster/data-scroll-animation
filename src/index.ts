@@ -4,6 +4,13 @@ type NeedUpdateAt = { before: boolean, start: number | null, end: number | null,
 // for the function keys the value is the list of arguments
 type Render = [ target: any, key: string, value: string | unknown[] ];
 type Accessor = () => any;
+type AnimatedProperty = {
+    accessor: Accessor,
+    key: string,
+    isFunction: boolean,
+    // null for the functions without keyframes
+    compute: ((frame: FramePosition) => string) | null
+};
 
 function nullableMin(first: number | null, second: number | null): number | null {
     if (first == null) {
@@ -256,7 +263,12 @@ class ScrollObject {
                 }
                 return lastObject;
             }
-            this._frames.push([accessor, lastKey, isFunction != null, isFunction && !hasFrames ? null : compute]);
+            this._frames.push({
+                accessor,
+                key: lastKey,
+                isFunction: isFunction != null,
+                compute: isFunction && !hasFrames ? null : compute
+            });
 
             this._needUpdateAt.before = this._needUpdateAt.before || needUpdateAt.before;
             this._needUpdateAt.start = nullableMin(this._needUpdateAt.start, needUpdateAt.start);
@@ -268,8 +280,7 @@ class ScrollObject {
         return this;
     }
     _needUpdateAt: NeedUpdateAt = { before: false, start: null, end: null, after: false };
-    // compute is null for the functions without keyframes
-    _frames: [ accessor: Accessor, key: string, isFunction: boolean, compute: ((frame: FramePosition) => string) | null ][] = [];
+    _frames: AnimatedProperty[] = [];
     _lastRenderFrame: FramePosition | null = null;
     render(frame: FramePosition, renders: Render[], force: boolean = false): Render[] {
         if (!force &&
@@ -296,21 +307,20 @@ class ScrollObject {
         }
         this._lastRenderFrame = frame;
         for (let frameIndex = this._frames.length - 1; frameIndex >= 0; frameIndex--) {
-            const currentFrame = this._frames[frameIndex];
-            const accessor = currentFrame[0], key = currentFrame[1], isFunction = currentFrame[2], compute = currentFrame[3];
-            const object = accessor();
+            const property = this._frames[frameIndex];
+            const object = property.accessor();
             if (object == null) {
                 continue;
             }
-            if (compute == null) {
-                renders.push([object, key, [frame]]);
-            } else if (isFunction) {
-                renders.push([object, key, [
+            if (property.compute == null) {
+                renders.push([object, property.key, [frame]]);
+            } else if (property.isFunction) {
+                renders.push([object, property.key, [
                     frame,
-                    ...compute(frame).split(",").map(argument => argument.trim()).filter(argument => argument !== "")
+                    ...property.compute(frame).split(",").map(argument => argument.trim()).filter(argument => argument !== "")
                 ]]);
             } else {
-                renders.push([object, key, compute(frame)]);
+                renders.push([object, property.key, property.compute(frame)]);
             }
         }
         return renders;
@@ -523,11 +533,11 @@ function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = tr
                     position = frame;
                 } else if (frameName === "before" || frameName === "after") {
                     position = frameName;
+                } else if (frameName === "extrapolate") {
+                    // the attribute value is ignored
+                    extrapolatedKeys[propertyName] = true;
+                    continue;
                 } else {
-                    if (frameName === "extrapolate") {
-                        // the attribute value is ignored
-                        extrapolatedKeys[propertyName] = true;
-                    }
                     continue;
                 }
                 (scrollOptions[propertyName] = scrollOptions[propertyName] || []).push([ position, attribute.value ]);
