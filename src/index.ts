@@ -392,8 +392,14 @@ class ScrollParent {
         const trigger: number = document.documentElement.clientHeight * this.trigger;
         const top: number = rectTop - this.topOffset;
         const bottom: number = rectBottom + this.bottomOffset;
-        const position: number = (trigger - top) / (bottom - top);
-        const actualPosition: FramePosition = position > 1 ? "after" : position < 0 ? "before" : position;
+        let actualPosition: FramePosition;
+        if (bottom - top <= 0) {
+            // empty range: avoid dividing by zero, decide only by the trigger
+            actualPosition = trigger < top ? "before" : "after";
+        } else {
+            const position: number = (trigger - top) / (bottom - top);
+            actualPosition = position > 1 ? "after" : position < 0 ? "before" : position;
+        }
         if (actualPosition === this._lastPosition && !force) {
             return renders;
         }
