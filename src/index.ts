@@ -66,11 +66,8 @@ function computeFrames(frames: [ FramePosition, string | typeof EXTRAPOLATE ][])
                 needUpdateAt[2] = frame[0];
             }
             if (!constants) {
-                thisStaticString = frame[1].trim()
-                    .replace(/[ ]*,[ ]*/g, ",")
-                    .replace(/(?:\([ ]+)/g, "(")
-                    .replace(/(?:\)[ ]+(?= \w))/g, ") ")
-                    .replace(/(?:\)[ ]{2,}(?! \w))/g, ")");
+                thisStaticString = frame[1].replace(/\s+/g, " ").trim()
+                    .replace(/ ?, ?|\( | \)/g, match => match.trim());
                 const thisStaticStringEmpty: string = thisStaticString.replace(/-?\d+(?:\.\d+)?/g, "");
                 const wasStaticStringNULL: boolean = staticString == null;
                 if (wasStaticStringNULL) {
