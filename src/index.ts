@@ -547,9 +547,9 @@ function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = tr
                 scrollOptions = {};
             }
             // convert "_[a-z]" to "[A-Z]" and "__" to "_"
-            const propertyName: string = dataSplit[0].replace(/(?:^|[\Wa-zA-Z])(_[a-zA-Z])/, function (match: string, underscoreLetter: string): string {
-                return match.replace(underscoreLetter, underscoreLetter[1].toUpperCase());
-            }).replace("__", "_");
+            const propertyName: string = dataSplit[0].replace(/_(_|[a-z])/g, function (match: string, nextCharacter: string): string {
+                return nextCharacter === "_" ? "_" : nextCharacter.toUpperCase();
+            });
             if (dataSplit.length === 1 && dataSplit[0].match(/(.*)\(\)$/)) {
                 scrollOptions[propertyName] = [];
             } else {
