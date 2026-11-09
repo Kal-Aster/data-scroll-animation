@@ -109,18 +109,16 @@ function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
             }
         });
         if (constants) {
+            // without before/after keep the first/last keyframe: the sort puts before and after
+            // after the keyframes, so the last keyframe is at frameNumbers.length - 1
+            const constantBeforeValue: string = beforeValue ?? frames[0][1];
+            const constantAfterValue: string = afterValue ?? frames[frameNumbers.length - 1][1];
             return {
                 compute: (frameNumber: FramePosition) => {
                     if (frameNumber === "before") {
-                        if (beforeValue != null) {
-                            return beforeValue;
-                        }
-                        return frames[0][1];
+                        return constantBeforeValue;
                     } else if (frameNumber === "after") {
-                        if (afterValue != null) {
-                            return afterValue;
-                        }
-                        return frames[frames.length - 1][1];
+                        return constantAfterValue;
                     }
                     const index: number = getNearestLeftIndexOf(frameNumber);
                     if (index === -1) {
