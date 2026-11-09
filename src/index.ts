@@ -301,12 +301,9 @@ class ScrollObject {
             this._lastRenderFrame !== "before" &&
             this._lastRenderFrame !== "after" &&
             (
-                (start == null || frame < start) ||
-                (end == null || frame > end)
-            ) &&
-            (
-                (start == null || this._lastRenderFrame < start) ||
-                (end == null || this._lastRenderFrame > end)
+                start == null || end == null ||
+                (frame < start && this._lastRenderFrame < start) ||
+                (frame > end && this._lastRenderFrame > end)
             )
         ) {
             return renders;
