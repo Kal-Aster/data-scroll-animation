@@ -172,7 +172,9 @@ function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
         for (let valueIndex = 0; valueIndex < valuesLength; valueIndex++) {
             let value: number = values[valueIndex];
             if (nextValues !== null) {
-                value = value + ((nextValues[valueIndex] - value) * percentage);
+                // rounded to 4 decimals so that close scroll positions give the same string and the browser
+                // skips recalculating the style; toFixed is avoided because it adds trailing zeros
+                value = Math.round((value + ((nextValues[valueIndex] - value) * percentage)) * 10000) / 10000;
             }
             constructedString += value.toString() + staticStringArray[valueIndex + 1];
         }
