@@ -466,11 +466,7 @@ const scrollParents: ScrollParent[] = [
     baseScrollParent
 ];
 
-function render(): void {
-    const renders: Render[] = [];
-    for (let parentIndex = scrollParents.length - 1; parentIndex >= 0; parentIndex--) {
-        scrollParents[parentIndex].render(renders);
-    }
+function applyRenders(renders: Render[]): void {
     for (let renderIndex = renders.length - 1; renderIndex >= 0; renderIndex--) {
         const render = renders[renderIndex];
         const result = render[2];
@@ -481,6 +477,14 @@ function render(): void {
             object[render[1]] = result;
         }
     }
+}
+
+function render(): void {
+    const renders: Render[] = [];
+    for (let parentIndex = scrollParents.length - 1; parentIndex >= 0; parentIndex--) {
+        scrollParents[parentIndex].render(renders);
+    }
+    applyRenders(renders);
 }
 
 let stop: boolean = false;
@@ -625,12 +629,7 @@ export function remove(element: HTMLElement, renderFrame: FramePosition | null =
         if (scrollObject != null) {
             scrollParent.remove(scrollObject);
             if (renderFrame != null) {
-                const renders: Render[] = [];
-                scrollObject.render(renderFrame, renders, true);
-                for (let renderIndex = renders.length - 1; renderIndex >= 0; renderIndex--) {
-                    const render = renders[renderIndex];
-                    render[0][render[1]] = render[2];
-                }
+                applyRenders(scrollObject.render(renderFrame, [], true));
             }
         }
         delete element[SCROLL_PARENT];
