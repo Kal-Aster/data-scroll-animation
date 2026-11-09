@@ -462,9 +462,7 @@ class ScrollParent {
 const baseScrollParent: ScrollParent = new ScrollParent(document.documentElement);
 document.body[SCROLL_PARENT] = baseScrollParent;
 
-const scrollParents: ScrollParent[] = [
-    baseScrollParent
-];
+const scrollParents: Set<ScrollParent> = new Set();
 
 function applyRenders(renders: Render[]): void {
     for (let renderIndex = renders.length - 1; renderIndex >= 0; renderIndex--) {
@@ -481,30 +479,26 @@ function applyRenders(renders: Render[]): void {
 
 function render(): void {
     const renders: Render[] = [];
-    for (let parentIndex = scrollParents.length - 1; parentIndex >= 0; parentIndex--) {
-        scrollParents[parentIndex].render(renders);
-    }
+    scrollParents.forEach(scrollParent => { scrollParent.render(renders); });
     applyRenders(renders);
 }
 
-let stop: boolean = false;
-let started: boolean = false;
+let animationFrameId: number | null = null;
 function startLoop(): void {
-    stop = false;
-    if (started) {
+    if (animationFrameId != null) {
         return;
     }
-    started = true;
-    requestAnimationFrame(function loop(): void {
-        if (!stop) {
-            render();
-            requestAnimationFrame(loop);
-        }
+    animationFrameId = requestAnimationFrame(function loop(): void {
+        render();
+        animationFrameId = requestAnimationFrame(loop);
     });
 }
 function endLoop(): void {
-    stop = true;
-    started = false;
+    if (animationFrameId == null) {
+        return;
+    }
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
 }
 
 function getRefreshedParent(element: HTMLElement): ScrollParent {
@@ -514,7 +508,7 @@ function getRefreshedParent(element: HTMLElement): ScrollParent {
         return element[SCROLL_PARENT]!.refresh();
     }
     const parent = new ScrollParent(element);
-    scrollParents.push(parent);
+    scrollParents.add(parent);
     return parent;
 }
 
@@ -607,12 +601,12 @@ export function add(element: HTMLElement, subtree: boolean = true): void {
     }
     if (firstScrollParent == null) {
         firstScrollParent = baseScrollParent;
-        if (baseScrollParent.children.length === 0) {
-            scrollParents.push(baseScrollParent);
-        }
     }
     parse(element, firstScrollParent, subtree);
-    if (scrollParents.length > 0) {
+    if (baseScrollParent.children.length > 0) {
+        scrollParents.add(baseScrollParent);
+    }
+    if (scrollParents.size > 0) {
         startLoop();
     }
 }
@@ -621,10 +615,7 @@ export function remove(element: HTMLElement, renderFrame: FramePosition | null =
     let scrollObject: ScrollObject | undefined = element[SCROLL_OBJECT];
     if (scrollParent != null) {
         if (scrollParent.element === element) {
-            const index: number = scrollParents.indexOf(scrollParent);
-            if (index !== -1) {
-                scrollParents.splice(index, 1);
-            }
+            scrollParents.delete(scrollParent);
         }
         if (scrollObject != null) {
             scrollParent.remove(scrollObject);
@@ -639,12 +630,9 @@ export function remove(element: HTMLElement, renderFrame: FramePosition | null =
         remove(child as HTMLElement, renderFrame);
     }
     if (scrollParent === baseScrollParent && baseScrollParent.children.length === 0) {
-        const index: number = scrollParents.indexOf(baseScrollParent);
-        if (index !== -1) {
-            scrollParents.splice(index, 1);
-        }
+        scrollParents.delete(baseScrollParent);
     }
-    if (scrollParents.length === 0) {
+    if (scrollParents.size === 0) {
         endLoop();
     }
 }
