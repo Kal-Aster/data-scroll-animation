@@ -327,16 +327,26 @@ class ScrollObject {
     }
 }
 
+function canScroll(overflow: string): boolean {
+    return overflow !== "visible" && overflow !== "clip";
+}
+
 function getFirstScrollParent(element: Element | null): Element | null {
     if (element == null) {
         return null;
     }
 
-    if (
-        element.scrollHeight !== element.clientHeight ||
-        element.scrollWidth !== element.scrollWidth
-    ) {
-        return element;
+    const overflowsVertically: boolean = element.scrollHeight !== element.clientHeight;
+    const overflowsHorizontally: boolean = element.scrollWidth !== element.clientWidth;
+    if (overflowsVertically || overflowsHorizontally) {
+        // the content sticking out of an element with overflow visible or clip does not make it scroll
+        const style: CSSStyleDeclaration = getComputedStyle(element);
+        if (
+            (overflowsVertically && canScroll(style.overflowY)) ||
+            (overflowsHorizontally && canScroll(style.overflowX))
+        ) {
+            return element;
+        }
     }
     return getFirstScrollParent(element.parentElement);
 }
@@ -359,7 +369,12 @@ class ScrollParent {
             if (ancestor == null) {
                 break;
             }
-            if (ancestor !== this.element && ancestor !== document.documentElement) {
+            // the scroll of the document is window.scrollY, already subtracted in _getRectTop
+            if (
+                ancestor !== this.element &&
+                ancestor !== document.documentElement &&
+                ancestor !== document.scrollingElement
+            ) {
                 this._parents.push(ancestor as HTMLElement);
             }
             ancestor = ancestor.parentElement;
