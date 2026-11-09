@@ -333,16 +333,26 @@ class ScrollObject {
     }
 }
 
+function canScroll(overflow: string): boolean {
+    return overflow !== "visible" && overflow !== "clip";
+}
+
 function getFirstScrollParent(element: Element | null): Element | null {
     if (element == null) {
         return null;
     }
 
-    if (
-        element.scrollHeight !== element.clientHeight ||
-        element.scrollWidth !== element.scrollWidth
-    ) {
-        return element;
+    const overflowsVertically: boolean = element.scrollHeight !== element.clientHeight;
+    const overflowsHorizontally: boolean = element.scrollWidth !== element.clientWidth;
+    if (overflowsVertically || overflowsHorizontally) {
+        // the content sticking out of an element with overflow visible or clip does not make it scroll
+        const style: CSSStyleDeclaration = getComputedStyle(element);
+        if (
+            (overflowsVertically && canScroll(style.overflowY)) ||
+            (overflowsHorizontally && canScroll(style.overflowX))
+        ) {
+            return element;
+        }
     }
     return getFirstScrollParent(element.parentElement);
 }
@@ -365,7 +375,12 @@ class ScrollParent {
             if (ancestor == null) {
                 break;
             }
-            if (ancestor !== this.element && ancestor !== document.documentElement) {
+            // the scroll of the document is window.scrollY, already subtracted in _getRectTop
+            if (
+                ancestor !== this.element &&
+                ancestor !== document.documentElement &&
+                ancestor !== document.scrollingElement
+            ) {
                 this._parents.push(ancestor as HTMLElement);
             }
             ancestor = ancestor.parentElement;
@@ -378,17 +393,28 @@ class ScrollParent {
     _lastPosition: FramePosition | null = null;
     _needsRefresh: boolean = true;
     _parents: HTMLElement[] = [];
+    // offsetTop ignores the CSS transforms, unlike getBoundingClientRect:
+    // an animation transforming an ancestor does not move the range it is computed on
     _getRectTop(): number {
-        let top: number = this.element.offsetTop;
-        let lastParentScrollTop: null | number = null;
-        for (let parentIndex = this._parents.length - 1; parentIndex >= 0; parentIndex--) {
-            const parent = this._parents[parentIndex];
-            top += parent.offsetTop - parent.scrollTop;
-            if (parent.parentElement == null) {
-                lastParentScrollTop = parent.scrollTop;
+        // position in the document, going up the offsetParent chain
+        let top: number = 0;
+        let element: HTMLElement = this.element;
+        while (true) {
+            top += element.offsetTop;
+            const offsetParent: HTMLElement | null = element.offsetParent as HTMLElement | null;
+            // when the offsetParent is the body, offsetTop is already relative to the document
+            if (offsetParent == null || offsetParent === document.body) {
+                break;
             }
+            // offsetTop is relative to the padding edge of the offsetParent, not to its border
+            top += offsetParent.clientTop;
+            element = offsetParent;
         }
-        return top - (lastParentScrollTop == window.scrollY ? 0 : window.scrollY);
+        // scroll of the ancestors
+        for (let parentIndex = this._parents.length - 1; parentIndex >= 0; parentIndex--) {
+            top -= this._parents[parentIndex].scrollTop;
+        }
+        return top - window.scrollY;
     }
     render(renders: Render[]): Render[] {
         if (this.children.length === 0 || (this.element.clientHeight === 0 && this.element.clientWidth === 0)) {
