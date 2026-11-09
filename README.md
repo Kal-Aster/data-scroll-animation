@@ -59,3 +59,12 @@ ScrollAnimation.add(document.querySelector("#animation")) // adds only the #anim
 
 ScrollAnimation.remove(document.querySelector("#element")) // removes only the #element element
 ```
+## Development
+`npm run build`
+>Builds `dist/` (UMD, ES module and type declarations)
+
+`npm run dev`
+>Rebuilds `test/scripts/main.js` on every change and serves the test page at http://localhost:8080
+
+`npm run build:test`
+>Builds `test/scripts/main.js` once
