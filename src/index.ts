@@ -307,20 +307,20 @@ class ScrollObject {
         }
         this._lastRenderFrame = frame;
         for (let frameIndex = this._frames.length - 1; frameIndex >= 0; frameIndex--) {
-            const property = this._frames[frameIndex];
-            const object = property.accessor();
+            const { accessor, key, isFunction, compute } = this._frames[frameIndex];
+            const object = accessor();
             if (object == null) {
                 continue;
             }
-            if (property.compute == null) {
-                renders.push([object, property.key, [frame]]);
-            } else if (property.isFunction) {
-                renders.push([object, property.key, [
+            if (compute == null) {
+                renders.push([object, key, [frame]]);
+            } else if (isFunction) {
+                renders.push([object, key, [
                     frame,
-                    ...property.compute(frame).split(",").map(argument => argument.trim()).filter(argument => argument !== "")
+                    ...compute(frame).split(",").map(argument => argument.trim()).filter(argument => argument !== "")
                 ]]);
             } else {
-                renders.push([object, property.key, property.compute(frame)]);
+                renders.push([object, key, compute(frame)]);
             }
         }
         return renders;
