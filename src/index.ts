@@ -25,12 +25,41 @@ function nullableMax(first: number | null, second: number | null): number | null
     return second == null ? first : Math.max(first, second);
 }
 
+// numbers like "5", "-0.5", ".5", "+5" and "1e-3"; hexadecimal colors are matched too only to be
+// skipped, so that their digits stay in the fixed parts instead of being interpolated
+const NUMBER_PATTERN: RegExp = /#[\da-f]+|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
+
+// splits a keyframe value into its numbers and the fixed parts around them:
+// staticParts always has one element more than values
+function parseKeyframeValue(value: string): { staticParts: string[], values: number[] } {
+    const normalizedValue: string = value.replace(/\s+/g, " ").trim()
+        .replace(/ ?, ?|\( | \)/g, match => match.trim());
+    const staticParts: string[] = [];
+    const values: number[] = [];
+    let previousMatchEnd: number = 0;
+    for (const match of normalizedValue.matchAll(NUMBER_PATTERN)) {
+        if (match[0][0] === "#") {
+            continue;
+        }
+        staticParts.push(normalizedValue.slice(previousMatchEnd, match.index));
+        values.push(parseFloat(match[0]));
+        previousMatchEnd = match.index! + match[0].length;
+    }
+    staticParts.push(normalizedValue.slice(previousMatchEnd));
+    return { staticParts, values };
+}
+
+function haveSameShape(staticParts: string[], otherStaticParts: string[]): boolean {
+    return staticParts.length === otherStaticParts.length &&
+        staticParts.every((staticPart, index) => staticPart === otherStaticParts[index]);
+}
+
 function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
     compute: (frame: FramePosition) => string,
     needUpdateAt: NeedUpdateAt
  } {
-    let staticString: string | null = null;
-    let indexes: number[] = [];
+    // fixed parts of the first keyframe: the keyframes are interpolated only if they all match it
+    let shape: string[] | null = null;
     let frameNumbers: number[] = [];
     let frameValues: number[][] = [];
     let beforeValue: string | null = null;
@@ -67,60 +96,43 @@ function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
             }
             return result;
         });
-        frames.forEach(frame => {
+        for (const frame of frames) {
             if (frame[0] === "after") {
                 afterValue = frame[1];
                 needUpdateAt.after = true;
-                return;
+                continue;
             } else if (frame[0] === "before") {
                 beforeValue = frame[1];
                 needUpdateAt.before = true;
-                return;
+                continue;
             }
-            let thisStaticString: string;
             frameNumbers.push(frame[0]);
             needUpdateAt.start = nullableMin(needUpdateAt.start, frame[0]);
             needUpdateAt.end = nullableMax(needUpdateAt.end, frame[0]);
             if (!constants) {
-                thisStaticString = frame[1].replace(/\s+/g, " ").trim()
-                    .replace(/ ?, ?|\( | \)/g, match => match.trim());
-                const thisStaticStringEmpty: string = thisStaticString.replace(/-?\d+(?:\.\d+)?/g, "");
-                const wasStaticStringNULL: boolean = staticString == null;
-                if (wasStaticStringNULL) {
-                    staticString = thisStaticStringEmpty;
+                const { staticParts, values } = parseKeyframeValue(frame[1]);
+                if (shape == null) {
+                    shape = staticParts;
                 }
-                if (thisStaticStringEmpty !== staticString) {
+                // same fixed parts means same count and positions of the numbers
+                if (haveSameShape(staticParts, shape)) {
+                    frameValues.push(values);
+                } else {
                     constants = true;
                 }
-                if (!constants) {
-                    let match: RegExpExecArray | null;
-                    const thisValues: number[] = [];
-                    while (match = (/(?:-?\d+(?:\.\d+)?)/).exec(thisStaticString)) {
-                        let thisStaticStringArray: string[] = thisStaticString.split("");
-                        thisStaticStringArray.splice(match.index, match[0].length);
-                        thisStaticString = thisStaticStringArray.join("");
-                        thisValues.push(parseFloat(match[0]));
-                        if (wasStaticStringNULL) {
-                            indexes.push(match.index);
-                        }
-                    }
-                    frameValues.push(thisValues);
-                }
             }
-        });
+        }
         if (constants) {
+            // without before/after keep the first/last keyframe: the sort puts before and after
+            // after the keyframes, so the last keyframe is at frameNumbers.length - 1
+            const constantBeforeValue: string = beforeValue ?? frames[0][1];
+            const constantAfterValue: string = afterValue ?? frames[frameNumbers.length - 1][1];
             return {
                 compute: (frameNumber: FramePosition) => {
                     if (frameNumber === "before") {
-                        if (beforeValue != null) {
-                            return beforeValue;
-                        }
-                        return frames[0][1];
+                        return constantBeforeValue;
                     } else if (frameNumber === "after") {
-                        if (afterValue != null) {
-                            return afterValue;
-                        }
-                        return frames[frames.length - 1][1];
+                        return constantAfterValue;
                     }
                     const index: number = getNearestLeftIndexOf(frameNumber);
                     if (index === -1) {
@@ -152,25 +164,19 @@ function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
         needUpdateAt.start = 0;
         needUpdateAt.end = 1;
     }
-    const staticStringArray: string[] = staticString!.split("").reduce((previous, current, index) => {
-        if (indexes.includes(index)) {
-            previous.push("");
-        }
-        previous[previous.length - 1]+= current;
-        return previous;
-    }, [""] as string[]);
+    // every interpolated keyframe has the same shape, so it has staticStringArray.length - 1 values
+    const staticStringArray: string[] = shape!;
+    const valuesLength: number = staticStringArray.length - 1;
     function constructString(values: number[], nextValues: number[] | null, percentage: number): string {
-        let constructedString: string = "";
-        const indexesLength = indexes.length;
-        for (let valueIndex = 0; valueIndex < indexesLength; valueIndex++) {
+        let constructedString: string = staticStringArray[0];
+        for (let valueIndex = 0; valueIndex < valuesLength; valueIndex++) {
             let value: number = values[valueIndex];
             if (nextValues !== null) {
-                value = value + ((nextValues[valueIndex] - value) * percentage);
+                // rounded to 4 decimals so that close scroll positions give the same string and the browser
+                // skips recalculating the style; toFixed is avoided because it adds trailing zeros
+                value = Math.round((value + ((nextValues[valueIndex] - value) * percentage)) * 10000) / 10000;
             }
-            constructedString += staticStringArray[valueIndex] + value.toString();
-        }
-        if (indexesLength < staticStringArray.length) {
-            constructedString += staticStringArray[indexesLength];
+            constructedString += value.toString() + staticStringArray[valueIndex + 1];
         }
         return constructedString;
     }
