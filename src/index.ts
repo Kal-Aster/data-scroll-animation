@@ -455,7 +455,9 @@ function endLoop(): void {
 }
 
 function getRefreshedParent(element: HTMLElement): ScrollParent {
-    if (element[SCROLL_PARENT]) {
+    // an animated element stores the parent it belongs to, which is an ancestor's:
+    // reuse it only if it is the element's own
+    if (element[SCROLL_PARENT] && element[SCROLL_PARENT]!.el === element) {
         return element[SCROLL_PARENT]!.refresh();
     }
     const parent = new ScrollParent(element);
