@@ -516,12 +516,19 @@ function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = tr
         }
     });
     if (scrollOptions != null) {
-        element[SCROLL_PARENT] = parent;
-        if (element[SCROLL_OBJECT]) {
-            element[SCROLL_OBJECT]!.refresh(scrollOptions);
-        } else {
-            parent.children.push(new ScrollObject(element, scrollOptions));
+        const previousParent: ScrollParent | undefined = element[SCROLL_PARENT];
+        let scrollObject: ScrollObject | undefined = element[SCROLL_OBJECT];
+        if (scrollObject != null && previousParent != null && previousParent !== parent) {
+            previousParent.remove(scrollObject);
         }
+        // ScrollObject.refresh refreshes element[SCROLL_PARENT], so the new parent must be set first
+        element[SCROLL_PARENT] = parent;
+        if (scrollObject != null) {
+            scrollObject.refresh(scrollOptions);
+        } else {
+            scrollObject = new ScrollObject(element, scrollOptions);
+        }
+        parent.add(scrollObject);
     }
     if (subtree) {
         Array.prototype.forEach.call(element.children, child => { parse(child, parent); });
