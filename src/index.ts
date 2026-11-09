@@ -1,8 +1,26 @@
 type FramePosition = number | "before" | "after";
+type Keyframe = [ position: FramePosition, value: string ];
+type NeedUpdateAt = { before: boolean, start: number | null, end: number | null, after: boolean };
+// for the function keys the value is the list of arguments
+type Render = [ target: any, key: string, value: string | unknown[] ];
+type Accessor = () => any;
 
-function computeFrames(frames: [ FramePosition, string ][], extrapolate: boolean = false): {
+function nullableMin(first: number | null, second: number | null): number | null {
+    if (first == null) {
+        return second;
+    }
+    return second == null ? first : Math.min(first, second);
+}
+function nullableMax(first: number | null, second: number | null): number | null {
+    if (first == null) {
+        return second;
+    }
+    return second == null ? first : Math.max(first, second);
+}
+
+function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
     compute: (frame: FramePosition) => string,
-    needUpdateAt: [ boolean, number | null, number | null, boolean ]
+    needUpdateAt: NeedUpdateAt
  } {
     let staticString: string | null = null;
     let indexes: number[] = [];
@@ -10,55 +28,52 @@ function computeFrames(frames: [ FramePosition, string ][], extrapolate: boolean
     let frameValues: number[][] = [];
     let beforeValue: string | null = null;
     let afterValue: string | null = null;
-    const needUpdateAt: [boolean, number | null, number | null, boolean] = [false, null, null, false];
+    const needUpdateAt: NeedUpdateAt = { before: false, start: null, end: null, after: false };
     function getNearestLeftIndexOf(frameNumber: number): number {
         if (frameNumbers.length === 0) {
             return -1;
         }
         let leftIndex: number = 0;
-        for (let i: number = 1; i < frameNumbers.length; i++) {
-            if (frameNumbers[i] > frameNumber) {
+        for (let index: number = 1; index < frameNumbers.length; index++) {
+            if (frameNumbers[index] > frameNumber) {
                 break;
             }
-            leftIndex = i;
+            leftIndex = index;
         }
         return leftIndex;
     }
     {
         let constants: boolean = false;
-        frames.sort((a, b) => {
+        frames.sort((firstFrame, secondFrame) => {
+            const first = firstFrame[0], second = secondFrame[0];
             let result: number;
-            if (a[0] === "before") {
-                result = b[0] === "after" ? -1 : b[0] === "before" ? 0 : 1;
-            } else if (a[0] === "after") {
-                result = b[0] === "after" ? 0 : b[0] === "before" ? 1 : -1;
-            } else if (b[0] === "before") {
+            if (first === "before") {
+                result = second === "after" ? -1 : second === "before" ? 0 : 1;
+            } else if (first === "after") {
+                result = second === "after" ? 0 : second === "before" ? 1 : -1;
+            } else if (second === "before") {
                 result = -1;
-            } else if (b[0] === "after") {
+            } else if (second === "after") {
                 result = -1;
             } else {
-                result = a[0] - b[0];
+                result = first - second;
             }
             return result;
         });
         frames.forEach(frame => {
             if (frame[0] === "after") {
                 afterValue = frame[1];
-                needUpdateAt[3] = true;
+                needUpdateAt.after = true;
                 return;
             } else if (frame[0] === "before") {
                 beforeValue = frame[1];
-                needUpdateAt[0] = true;
+                needUpdateAt.before = true;
                 return;
             }
             let thisStaticString: string;
             frameNumbers.push(frame[0]);
-            if (needUpdateAt[1] == null || needUpdateAt[1] > frame[0]) {
-                needUpdateAt[1] = frame[0];
-            }
-            if (needUpdateAt[2] == null || needUpdateAt[2] < frame[0]) {
-                needUpdateAt[2] = frame[0];
-            }
+            needUpdateAt.start = nullableMin(needUpdateAt.start, frame[0]);
+            needUpdateAt.end = nullableMax(needUpdateAt.end, frame[0]);
             if (!constants) {
                 thisStaticString = frame[1].replace(/\s+/g, " ").trim()
                     .replace(/ ?, ?|\( | \)/g, match => match.trim());
@@ -120,22 +135,22 @@ function computeFrames(frames: [ FramePosition, string ][], extrapolate: boolean
                 }
                 return "";
             },
-            needUpdateAt: [needUpdateAt[0], null, null, needUpdateAt[3]]
+            needUpdateAt: { before: needUpdateAt.before, start: null, end: null, after: needUpdateAt.after }
         };
     }
     // extrapolating needs a segment to extend, otherwise the flag is ignored
     const extrapolating: boolean = extrapolate && frameNumbers.length >= 2;
     if (extrapolating) {
         // values change over the whole range, not only between the keyframes
-        needUpdateAt[1] = 0;
-        needUpdateAt[2] = 1;
+        needUpdateAt.start = 0;
+        needUpdateAt.end = 1;
     }
-    const staticStringArray: string[] = staticString!.split("").reduce((prev, current, index) => {
-        if (indexes.some(i => i === index)) {
-            prev.push("");
+    const staticStringArray: string[] = staticString!.split("").reduce((previous, current, index) => {
+        if (indexes.includes(index)) {
+            previous.push("");
         }
-        prev[prev.length - 1]+= current;
-        return prev;
+        previous[previous.length - 1]+= current;
+        return previous;
     }, [""] as string[]);
     function constructString(values: number[], nextValues: number[] | null, percentage: number): string {
         let constructedString: string = "";
@@ -184,8 +199,8 @@ function computeFrames(frames: [ FramePosition, string ][], extrapolate: boolean
             }
             const left: number = frameNumbers[index];
             const right: number = frameNumbers[index + 1];
-            const perc: number = (frameNumber-left)/(right-left);
-            return constructString(frameValues[index], frameValues[index + 1], perc);
+            const progress: number = (frameNumber-left)/(right-left);
+            return constructString(frameValues[index], frameValues[index + 1], progress);
         },
         needUpdateAt
     };
@@ -203,11 +218,11 @@ declare global {
 }
 
 class ScrollObject {
-    constructor(readonly el: HTMLElement, frames: { [key: string]: [FramePosition, string][] }, extrapolatedKeys: { [key: string]: boolean } = {}) {
+    constructor(readonly element: HTMLElement, frames: { [key: string]: Keyframe[] }, extrapolatedKeys: { [key: string]: boolean } = {}) {
         this.refresh(frames, extrapolatedKeys);
     }
-    refresh(frames: { [key: string]: [FramePosition, string][] }, extrapolatedKeys: { [key: string]: boolean } = {}): ScrollObject {
-        this.el[SCROLL_OBJECT] = this;
+    refresh(frames: { [key: string]: Keyframe[] }, extrapolatedKeys: { [key: string]: boolean } = {}): ScrollObject {
+        this.element[SCROLL_OBJECT] = this;
         this._frames = [];
         for (let key in frames) {
             if (!Object.prototype.hasOwnProperty.call(frames, key)) {
@@ -220,85 +235,68 @@ class ScrollObject {
             }
             const hasFrames: boolean = frames[key].length > 0;
             const { compute, needUpdateAt } = computeFrames(frames[key], extrapolatedKeys[key] === true);
-            if (isFunction && needUpdateAt.every((value, index) => {
-                if (index === 0 || index === 3) {
-                    return value === false;
-                }
-                return value === null;
-            })) {
-                needUpdateAt[0] = true;
-                needUpdateAt[1] = 0;
-                needUpdateAt[2] = 1;
-                needUpdateAt[3] = true;
+            if (
+                isFunction &&
+                !needUpdateAt.before && needUpdateAt.start == null &&
+                needUpdateAt.end == null && !needUpdateAt.after
+            ) {
+                needUpdateAt.before = true;
+                needUpdateAt.start = 0;
+                needUpdateAt.end = 1;
+                needUpdateAt.after = true;
             }
             const keyLength = splitKey.length;
-            const accessor: () => any = () => {
-                let lastObject: any = this.el;
-                for (let i = 0; i < keyLength; i++) {
+            const accessor: Accessor = () => {
+                let lastObject: any = this.element;
+                for (let keyIndex = 0; keyIndex < keyLength; keyIndex++) {
                     if (lastObject == null) {
                         return null;
                     }
-                    lastObject = lastObject[splitKey[i]];
+                    lastObject = lastObject[splitKey[keyIndex]];
                 }
                 return lastObject;
             }
             this._frames.push([accessor, lastKey, isFunction != null, isFunction && !hasFrames ? null : compute]);
 
-            this._needUpdateAt[0] = this._needUpdateAt[0] || needUpdateAt[0];
-            if (
-                this._needUpdateAt[1] !== needUpdateAt[1] &&
-                needUpdateAt[1] != null && (
-                    this._needUpdateAt[1] == null ||
-                    needUpdateAt[1] < this._needUpdateAt[1]
-                )
-             ) {
-                this._needUpdateAt[1] = needUpdateAt[1]
-            }
-            if (
-                this._needUpdateAt[2] !== needUpdateAt[2] &&
-                needUpdateAt[2] != null && (
-                    this._needUpdateAt[2] == null ||
-                    needUpdateAt[2] > this._needUpdateAt[2]
-                )
-             ) {
-                this._needUpdateAt[2] = needUpdateAt[2]
-            }
-            this._needUpdateAt[3] = this._needUpdateAt[3] || needUpdateAt[3];
+            this._needUpdateAt.before = this._needUpdateAt.before || needUpdateAt.before;
+            this._needUpdateAt.start = nullableMin(this._needUpdateAt.start, needUpdateAt.start);
+            this._needUpdateAt.end = nullableMax(this._needUpdateAt.end, needUpdateAt.end);
+            this._needUpdateAt.after = this._needUpdateAt.after || needUpdateAt.after;
         }
         this._lastRenderFrame = null;
-        this.el[SCROLL_PARENT]!.refresh();
+        this.element[SCROLL_PARENT]!.refresh();
         return this;
     }
-    _needUpdateAt: [boolean, number | null, number | null, boolean] = [false, null, null, false];
-    // _frames: { [key: string]: (frame: FramePosition) => string } = {};
-    // [ accessor => object, key, isFunction, computer (null for functions without keyframes) ]
-    _frames: [ () => any, string, boolean, ((frame: FramePosition) => string) | null ][] = [];
+    _needUpdateAt: NeedUpdateAt = { before: false, start: null, end: null, after: false };
+    // compute is null for the functions without keyframes
+    _frames: [ accessor: Accessor, key: string, isFunction: boolean, compute: ((frame: FramePosition) => string) | null ][] = [];
     _lastRenderFrame: FramePosition | null = null;
-    render(frame: FramePosition, renders: [any, string, string|any[]][], force: boolean = false): [any, string, string|any[]][] {
+    render(frame: FramePosition, renders: Render[], force: boolean = false): Render[] {
         if (!force &&
             this._lastRenderFrame === frame
         ) {
             return renders;
         }
+        const { start, end } = this._needUpdateAt;
         if (
             this._lastRenderFrame != null &&
             frame !== "before" && frame !== "after" &&
             this._lastRenderFrame !== "before" &&
             this._lastRenderFrame !== "after" &&
             (
-                (this._needUpdateAt[1] == null || frame < this._needUpdateAt[1]) ||
-                (this._needUpdateAt[2] == null || frame > this._needUpdateAt[2])
+                (start == null || frame < start) ||
+                (end == null || frame > end)
             ) &&
             (
-                (this._needUpdateAt[1] == null || this._lastRenderFrame < this._needUpdateAt[1]) ||
-                (this._needUpdateAt[2] == null || this._lastRenderFrame > this._needUpdateAt[2])
+                (start == null || this._lastRenderFrame < start) ||
+                (end == null || this._lastRenderFrame > end)
             )
         ) {
             return renders;
         }
         this._lastRenderFrame = frame;
-        for (let i = this._frames.length - 1; i >= 0; i--) {
-            const currentFrame = this._frames[i];
+        for (let frameIndex = this._frames.length - 1; frameIndex >= 0; frameIndex--) {
+            const currentFrame = this._frames[frameIndex];
             const accessor = currentFrame[0], key = currentFrame[1], isFunction = currentFrame[2], compute = currentFrame[3];
             const object = accessor();
             if (object == null) {
@@ -309,7 +307,7 @@ class ScrollObject {
             } else if (isFunction) {
                 renders.push([object, key, [
                     frame,
-                    ...compute(frame).split(",").map(t => t.trim()).filter(t => t !== "")
+                    ...compute(frame).split(",").map(argument => argument.trim()).filter(argument => argument !== "")
                 ]]);
             } else {
                 renders.push([object, key, compute(frame)]);
@@ -334,9 +332,8 @@ function getFirstScrollParent(element: Element | null): Element | null {
 }
 
 class ScrollParent {
-    constructor(readonly el: HTMLElement) {
-        el[SCROLL_PARENT] = this;
-        this._computedStyle = window.getComputedStyle(this.el);
+    constructor(readonly element: HTMLElement) {
+        element[SCROLL_PARENT] = this;
     }
     refresh(): ScrollParent {
         this._lastPosition = null;
@@ -346,16 +343,16 @@ class ScrollParent {
     _refreshParents(): void {
         this._needsRefresh = false;
         this._parents = [];
-        let el: Element | null = this.el;
+        let ancestor: Element | null = this.element;
         while (true) {
-            el = getFirstScrollParent(el);
-            if (el == null) {
+            ancestor = getFirstScrollParent(ancestor);
+            if (ancestor == null) {
                 break;
             }
-            if (el !== this.el && el !== document.documentElement) {
-                this._parents.push(el as HTMLElement);
+            if (ancestor !== this.element && ancestor !== document.documentElement) {
+                this._parents.push(ancestor as HTMLElement);
             }
-            el = el.parentElement;
+            ancestor = ancestor.parentElement;
         }
     }
     children: ScrollObject[] = [];
@@ -364,32 +361,28 @@ class ScrollParent {
     bottomOffset: number = 0;
     _lastPosition: FramePosition | null = null;
     _needsRefresh: boolean = true;
-    _computedStyle: CSSStyleDeclaration;
     _parents: HTMLElement[] = [];
     _getRectTop(): number {
-        let top: number = this.el.offsetTop;
+        let top: number = this.element.offsetTop;
         let lastParentScrollTop: null | number = null;
-        for (let i = this._parents.length - 1; i >= 0; i --) {
-            const parent = this._parents[i];
+        for (let parentIndex = this._parents.length - 1; parentIndex >= 0; parentIndex--) {
+            const parent = this._parents[parentIndex];
             top += parent.offsetTop - parent.scrollTop;
             if (parent.parentElement == null) {
                 lastParentScrollTop = parent.scrollTop;
             }
         }
-        return top - (lastParentScrollTop == window.pageYOffset ? 0 : window.pageYOffset);
-    };
-    render(renders: [any, string, string|any[]][], force: boolean = false): [any, string, string|any[]][] {
-        if (this.children.length === 0 || (this.el.clientHeight === 0 && this.el.clientWidth === 0)) {
+        return top - (lastParentScrollTop == window.scrollY ? 0 : window.scrollY);
+    }
+    render(renders: Render[]): Render[] {
+        if (this.children.length === 0 || (this.element.clientHeight === 0 && this.element.clientWidth === 0)) {
             return renders;
         }
         if (this._needsRefresh) {
             this._refreshParents();
         }
-        // const rect: DOMRect = this.el.getBoundingClientRect();
-        // const rectTop: number = rect.top;
-        // const rectBottom: number = rect.bottom;
         const rectTop: number = this._getRectTop();
-        const rectBottom: number = rectTop + this.el.offsetHeight;
+        const rectBottom: number = rectTop + this.element.offsetHeight;
         const trigger: number = document.documentElement.clientHeight * this.trigger;
         const top: number = rectTop - this.topOffset;
         const bottom: number = rectBottom + this.bottomOffset;
@@ -401,26 +394,25 @@ class ScrollParent {
             const position: number = (trigger - top) / (bottom - top);
             actualPosition = position > 1 ? "after" : position < 0 ? "before" : position;
         }
-        if (actualPosition === this._lastPosition && !force) {
+        if (actualPosition === this._lastPosition) {
             return renders;
         }
         this._lastPosition = actualPosition;
-        for (let i = this.children.length - 1; i >= 0; i--) {
-            this.children[i].render(this._lastPosition!, renders, force);
+        for (let childIndex = this.children.length - 1; childIndex >= 0; childIndex--) {
+            this.children[childIndex].render(this._lastPosition!, renders);
         }
-        // this.el.dispatchEvent(new CustomEvent("render", { detail: { position: this._lastPosition }, bubbles: false }));
         return renders;
     }
-    remove(obj: ScrollObject): void {
-        let index: number = -1;
-        if (this.children.some((child, i) => { index = i; return child === obj || child.el === obj.el; } )) {
+    remove(scrollObject: ScrollObject): void {
+        const index: number = this.children.findIndex(child => child === scrollObject || child.element === scrollObject.element);
+        if (index !== -1) {
             this.children.splice(index, 1);
             this._lastPosition = null;
         }
     }
-    add(obj: ScrollObject): void {
-        this.remove(obj);
-        this.children.push(obj);
+    add(scrollObject: ScrollObject): void {
+        this.remove(scrollObject);
+        this.children.push(scrollObject);
         this._lastPosition = null;
     }
 }
@@ -433,17 +425,17 @@ const scrollParents: ScrollParent[] = [
 ];
 
 function render(): void {
-    const renders: [any, string, string][] = [];
-    for (let i = scrollParents.length - 1; i >= 0; i--) {
-        scrollParents[i].render(renders);
+    const renders: Render[] = [];
+    for (let parentIndex = scrollParents.length - 1; parentIndex >= 0; parentIndex--) {
+        scrollParents[parentIndex].render(renders);
     }
-    for (let i = renders.length - 1; i >= 0; i--) {
-        const render = renders[i];
+    for (let renderIndex = renders.length - 1; renderIndex >= 0; renderIndex--) {
+        const render = renders[renderIndex];
         const result = render[2];
         const object = render[0];
         if (Array.isArray(result)) {
             object[render[1]].apply(object, result);
-        } else{
+        } else {
             object[render[1]] = result;
         }
     }
@@ -457,10 +449,10 @@ function startLoop(): void {
         return;
     }
     started = true;
-    requestAnimationFrame(function fn(): void {
+    requestAnimationFrame(function loop(): void {
         if (!stop) {
             render();
-            requestAnimationFrame(fn);
+            requestAnimationFrame(loop);
         }
     });
 }
@@ -472,7 +464,7 @@ function endLoop(): void {
 function getRefreshedParent(element: HTMLElement): ScrollParent {
     // an animated element stores the parent it belongs to, which is an ancestor's:
     // reuse it only if it is the element's own
-    if (element[SCROLL_PARENT] && element[SCROLL_PARENT]!.el === element) {
+    if (element[SCROLL_PARENT] && element[SCROLL_PARENT]!.element === element) {
         return element[SCROLL_PARENT]!.refresh();
     }
     const parent = new ScrollParent(element);
@@ -481,29 +473,29 @@ function getRefreshedParent(element: HTMLElement): ScrollParent {
 }
 
 function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = true): void {
-    let scrollOptions: { [key: string]: [FramePosition, string][] } | null = null;
+    let scrollOptions: { [key: string]: Keyframe[] } | null = null;
     const extrapolatedKeys: { [key: string]: boolean } = {};
-    Array.prototype.forEach.call(element.attributes, (attr: Attr) => {
-        if (!attr.name.match(/^data-scroll[\-\.]/)) {
-            return;
+    for (const attribute of element.attributes) {
+        if (!attribute.name.startsWith("data-scroll-") && !attribute.name.startsWith("data-scroll.")) {
+            continue;
         }
-        const data: string = attr.name.substr(11);
+        const data: string = attribute.name.slice(11);
         if (data === "-parent") {
             parent = getRefreshedParent(element);
         } else if (data === "-trigger") {
-            let trigger: number = parseFloat(attr.value);
+            let trigger: number = parseFloat(attribute.value);
             if (!isNaN(trigger)) {
                 parent = getRefreshedParent(element);
                 parent.trigger = trigger;
             }
         } else if (data === "-bottom") {
-            let bottom: number = parseFloat(attr.value);
+            let bottom: number = parseFloat(attribute.value);
             if (!isNaN(bottom)) {
                 parent = getRefreshedParent(element);
                 parent.bottomOffset = bottom;
             }
         } else if (data === "-top") {
-            let top: number = parseFloat(attr.value);
+            let top: number = parseFloat(attribute.value);
             if (!isNaN(top)) {
                 parent = getRefreshedParent(element);
                 parent.topOffset = top;
@@ -512,32 +504,36 @@ function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = tr
             const dataSplit: string[] = data.split("-");
             dataSplit.shift();
             if (dataSplit.length > 2 || dataSplit.length === 0) {
-                return;
+                continue;
             }
             if (scrollOptions == null) {
                 scrollOptions = {};
             }
             // convert "_[a-z]" to "[A-Z]" and "__" to "_"
-            const propertyName: string = dataSplit[0].replace(/(?:^|[\Wa-zA-Z])(_[a-zA-Z])/, function (_: string, g: string): string {
-                return _.replace(g, g[1].toUpperCase());
+            const propertyName: string = dataSplit[0].replace(/(?:^|[\Wa-zA-Z])(_[a-zA-Z])/, function (match: string, underscoreLetter: string): string {
+                return match.replace(underscoreLetter, underscoreLetter[1].toUpperCase());
             }).replace("__", "_");
             if (dataSplit.length === 1 && dataSplit[0].match(/(.*)\(\)$/)) {
                 scrollOptions[propertyName] = [];
             } else {
-                const frame: number = parseFloat(dataSplit[1]);
+                const frameName: string = dataSplit[1];
+                const frame: number = parseFloat(frameName);
+                let position: FramePosition;
                 if (!isNaN(frame)) {
-                    scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([ [ frame, attr.value ] ]);
-                } else if (dataSplit[1] === "before") {
-                    scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([ [ "before", attr.value ] ]);
-                } else if (dataSplit[1] === "after") {
-                    scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([ [ "after", attr.value ] ]);
-                } else if (dataSplit[1] === "extrapolate") {
-                    // the attribute value is ignored
-                    extrapolatedKeys[propertyName] = true;
+                    position = frame;
+                } else if (frameName === "before" || frameName === "after") {
+                    position = frameName;
+                } else {
+                    if (frameName === "extrapolate") {
+                        // the attribute value is ignored
+                        extrapolatedKeys[propertyName] = true;
+                    }
+                    continue;
                 }
+                (scrollOptions[propertyName] = scrollOptions[propertyName] || []).push([ position, attribute.value ]);
             }
         }
-    });
+    }
     if (scrollOptions != null) {
         element[SCROLL_PARENT] = parent;
         if (element[SCROLL_OBJECT]) {
@@ -547,7 +543,9 @@ function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = tr
         }
     }
     if (subtree) {
-        Array.prototype.forEach.call(element.children, child => { parse(child, parent); });
+        for (const child of element.children) {
+            parse(child as HTMLElement, parent);
+        }
     }
 }
 
@@ -572,26 +570,23 @@ export function add(element: HTMLElement, subtree: boolean = true): void {
         startLoop();
     }
 }
-export function remove(element: HTMLElement, renderFrame: number | "before" | "after" | null = null): void {
+export function remove(element: HTMLElement, renderFrame: FramePosition | null = null): void {
     let scrollParent: ScrollParent | undefined = element[SCROLL_PARENT];
     let scrollObject: ScrollObject | undefined = element[SCROLL_OBJECT];
     if (scrollParent != null) {
-        if (scrollParent.el === element) {
-            let index: number = -1;
-            if (scrollParents.some((p, i) => {
-                index = i;
-                return p === scrollParent;
-            })) {
+        if (scrollParent.element === element) {
+            const index: number = scrollParents.indexOf(scrollParent);
+            if (index !== -1) {
                 scrollParents.splice(index, 1);
             }
         }
         if (scrollObject != null) {
             scrollParent.remove(scrollObject);
             if (renderFrame != null) {
-                const renders: [any, string, string][] = [];
+                const renders: Render[] = [];
                 scrollObject.render(renderFrame, renders, true);
-                for (let i = renders.length - 1; i >= 0; i--) {
-                    const render = renders[i];
+                for (let renderIndex = renders.length - 1; renderIndex >= 0; renderIndex--) {
+                    const render = renders[renderIndex];
                     render[0][render[1]] = render[2];
                 }
             }
@@ -599,18 +594,12 @@ export function remove(element: HTMLElement, renderFrame: number | "before" | "a
         delete element[SCROLL_PARENT];
         delete element[SCROLL_OBJECT];
     }
-    Array.prototype.forEach.call(element.children, child => {
-        remove(child, renderFrame);
-    });
+    for (const child of element.children) {
+        remove(child as HTMLElement, renderFrame);
+    }
     if (scrollParent === baseScrollParent && baseScrollParent.children.length === 0) {
-        let index: number = -1;
-        if (scrollParents.some((p, i) => {
-            if (p === baseScrollParent) {
-                index = i;
-                return true;
-            }
-            return false;
-        })) {
+        const index: number = scrollParents.indexOf(baseScrollParent);
+        if (index !== -1) {
             scrollParents.splice(index, 1);
         }
     }
