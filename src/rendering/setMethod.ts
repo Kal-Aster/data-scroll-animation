@@ -1,9 +1,8 @@
 import endLoop from "./endLoop";
-
-import METHOD from "./enums/METHOD";
-
 import loopState from "./loopState";
 import startLoop from "./startLoop";
+
+import METHOD from "./enums/METHOD";
 
 export default function setMethod(value: METHOD): void {
     if (value !== METHOD.ANIMATION_FRAME && value !== METHOD.EVENTS) {

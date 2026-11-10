@@ -1,5 +1,3 @@
-import METHOD from "./enums/METHOD";
-
 import loopState from "./loopState";
 import observe from "./observe";
 import renderScrollParents from "./renderScrollParents";
@@ -7,6 +5,8 @@ import requestRender from "./requestRender";
 import resizeObserverOptions from "./resizeObserverOptions";
 import scrollListenerOptions from "./scrollListenerOptions";
 import scrollParents from "./scrollParents";
+
+import METHOD from "./enums/METHOD";
 
 export default function startLoop(): void {
     if (loopState.started) {

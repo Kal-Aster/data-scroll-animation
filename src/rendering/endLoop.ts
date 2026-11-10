@@ -1,8 +1,8 @@
-import METHOD from "./enums/METHOD";
-
 import loopState from "./loopState";
 import requestRender from "./requestRender";
 import scrollListenerOptions from "./scrollListenerOptions";
+
+import METHOD from "./enums/METHOD";
 
 export default function endLoop(): void {
     if (!loopState.started) {

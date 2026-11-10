@@ -5,12 +5,12 @@
  *   1. side-effect imports (`import "x"`): kept at the top, in source order, untouched
  *   2. package imports (anything not starting with "."): one block, sorted
  *      alphabetically (case-insensitive) by the full specifier (no blank lines)
- *   3. relative imports: sorted alphabetically (case-insensitive) by the full
- *      specifier, with one
+ *   3. relative imports: sorted by directory (the substring before the last "/"),
+ *      then alphabetically (case-insensitive) by the full specifier, with one
  *      blank line wherever two consecutive imports come from a different
- *      directory (the substring before the last "/"). Because the sort is
- *      lexicographic, shallower paths naturally come before their subfolders
- *      (e.g. `../api` before `../api/events`).
+ *      directory. Farther ancestors come first (`../../a` before `../b` before
+ *      `./c`), and the files of a directory come before its subfolders
+ *      (`./z` before `./api/events`).
  */
 
 /** Case-insensitive comparison, with the case-sensitive order as a stable tiebreak. */
@@ -33,6 +33,22 @@ function isRelative(source) {
 function directoryKey(source) {
     const lastSlash = source.lastIndexOf("/");
     return lastSlash === -1 ? source : source.slice(0, lastSlash);
+}
+
+/** Orders relative specifiers by directory, then by the full specifier. */
+function compareRelativeSpecifiers(left, right) {
+    const leftSegments = directoryKey(left).split("/");
+    const rightSegments = directoryKey(right).split("/");
+    const leftUpCount = leftSegments.filter((segment) => segment === "..").length;
+    const rightUpCount = rightSegments.filter((segment) => segment === "..").length;
+    if (leftUpCount !== rightUpCount) return rightUpCount - leftUpCount;
+    const sharedLength = Math.min(leftSegments.length, rightSegments.length);
+    for (let index = 0; index < sharedLength; index += 1) {
+        const comparison = compareStrings(leftSegments[index], rightSegments[index]);
+        if (comparison !== 0) return comparison;
+    }
+    if (leftSegments.length !== rightSegments.length) return leftSegments.length - rightSegments.length;
+    return compareStrings(left, right);
 }
 
 /** Index of the start of the line containing `position`. */
@@ -108,7 +124,7 @@ const importOrderRule = {
                     }
 
                     if (relatives.length > 0) {
-                        relatives.sort((first, second) => compareStrings(first.source.value, second.source.value));
+                        relatives.sort((first, second) => compareRelativeSpecifiers(first.source.value, second.source.value));
                         let relativeText = "";
                         for (let index = 0; index < relatives.length; index += 1) {
                             if (index > 0) {

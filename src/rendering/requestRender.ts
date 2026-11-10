@@ -1,7 +1,7 @@
-import METHOD from "./enums/METHOD";
-
 import loopState from "./loopState";
 import renderScrollParents from "./renderScrollParents";
+
+import METHOD from "./enums/METHOD";
 
 /**
  * Schedules a render on the next frame. With `METHOD.EVENTS` it is needed when a parent moves
