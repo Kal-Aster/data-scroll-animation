@@ -7,7 +7,7 @@ export default function createAnimatedProperty(
     element: HTMLElement,
     key: string,
     keyframes: frames.Keyframe[],
-    extrapolate: boolean
+    options: frames.InterpolationOptions
 ): AnimatedProperty | null {
     const splitKey: string[] = key.split(".");
     const [isValid, lastKey, isFunction] = splitKey.pop()!.match(/^([^\(\)]*)(\(\))?$/) || [];
@@ -15,7 +15,7 @@ export default function createAnimatedProperty(
         return null;
     }
     const hasFrames: boolean = keyframes.length > 0;
-    const { compute, needUpdateAt, constants } = frames.computeFrames(keyframes, extrapolate);
+    const { compute, needUpdateAt, constants } = frames.computeFrames(keyframes, options);
     if (
         isFunction &&
         !needUpdateAt.before && needUpdateAt.start == null &&

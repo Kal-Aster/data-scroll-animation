@@ -14,6 +14,8 @@
 - `setMethod` and `METHOD` to choose between rendering on events and on every animation frame
 - `requestRender` to schedule a render when a parent moves without scrolling or resizing
 - `data-scroll-(property)-extrapolate` is documented and extends both the first and the last segments
+- `data-scroll-(property)-easing` applies an easing to every interpolation segment: the functions of easings.net,
+  `cubic-bezier()` and `steps()`
 - horizontally scrolling parents are recognized and parents that can't scroll are ignored
 
 ### Changed
