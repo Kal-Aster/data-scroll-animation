@@ -1,6 +1,7 @@
 import applyRenders from "./applyRenders";
-import Render from "./types/Render";
 import scrollParents from "./scrollParents";
+
+import Render from "./types/Render";
 
 export default function renderScrollParents(): void {
     const renders: Render[] = [];

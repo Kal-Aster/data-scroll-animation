@@ -3,11 +3,12 @@ import _applyRenders from "./applyRenders";
 import _deleteScrollParent from "./deleteScrollParent";
 import _endLoop from "./endLoop";
 import _METHOD from "./METHOD";
-import _Render from "./types/Render";
 import _requestRender from "./requestRender";
 import _scrollParents from "./scrollParents";
 import _setMethod from "./setMethod";
 import _startLoop from "./startLoop";
+
+import _Render from "./types/Render";
 
 namespace rendering {
     export const addScrollParent = _addScrollParent;

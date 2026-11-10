@@ -1,4 +1,5 @@
 import symbols from "../symbols";
+
 import ScrollParent from "./ScrollParent";
 
 // parent of the elements without a data-scroll-parent ancestor: the whole document

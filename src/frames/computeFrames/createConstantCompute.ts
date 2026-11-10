@@ -1,5 +1,6 @@
 import FramePosition from "../types/FramePosition";
 import Keyframe from "../types/Keyframe";
+
 import getNearestLeftIndex from "./getNearestLeftIndex";
 
 export default function createConstantCompute(

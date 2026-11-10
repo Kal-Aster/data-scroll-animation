@@ -1,6 +1,7 @@
 import parents from "../parents";
 import rendering from "../rendering";
 import symbols from "../symbols";
+
 import parse from "./parse";
 
 export default function add(element: HTMLElement, subtree: boolean = true): void {

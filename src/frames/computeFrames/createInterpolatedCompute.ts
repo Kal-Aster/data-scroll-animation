@@ -1,4 +1,5 @@
 import FramePosition from "../types/FramePosition";
+
 import getNearestLeftIndex from "./getNearestLeftIndex";
 
 // every interpolated keyframe has the same shape, so it has staticParts.length - 1 values

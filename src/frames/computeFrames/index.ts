@@ -1,7 +1,9 @@
 import math from "../../math";
+
 import FramePosition from "../types/FramePosition";
 import Keyframe from "../types/Keyframe";
 import NeedUpdateAt from "../types/NeedUpdateAt";
+
 import compareKeyframePositions from "./compareKeyframePositions";
 import createBeforeAfterCompute from "./createBeforeAfterCompute";
 import createConstantCompute from "./createConstantCompute";

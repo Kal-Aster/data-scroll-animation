@@ -1,4 +1,5 @@
 import parents from "../parents";
+
 import observe from "./observe";
 import scrollParents from "./scrollParents";
 

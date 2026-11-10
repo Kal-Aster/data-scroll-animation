@@ -2,6 +2,7 @@ import elements from "../../elements";
 import frames from "../../frames";
 import rendering from "../../rendering";
 import symbols from "../../symbols";
+
 import getDocumentTop from "./getDocumentTop";
 import getScrollAncestors from "./getScrollAncestors";
 
