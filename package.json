@@ -1,7 +1,15 @@
 {
   "name": "data-scroll-animation",
   "version": "2.0.0",
-  "description": "",
+  "description": "Animates element properties on scroll, declared with data attributes",
+  "keywords": [
+    "scroll",
+    "animation",
+    "scroll-animation",
+    "parallax",
+    "data-attributes",
+    "easing"
+  ],
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@rollup/plugin-typescript": "^12.3.1",
@@ -15,13 +23,21 @@
     "build": "rollup -c",
     "build:test": "rollup -c --environment BUILD:test",
     "dev": "rollup -c --environment BUILD:test --watch",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run lint && npm run build && npm run check:types",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "check:types": "attw --pack ."
   },
   "author": "Giuliano Collacchioni",
   "license": "MIT",
+  "homepage": "https://github.com/Kal-Aster/data-scroll-animation#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kal-Aster/data-scroll-animation.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Kal-Aster/data-scroll-animation/issues"
+  },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
