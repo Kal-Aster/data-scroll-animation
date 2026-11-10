@@ -1,3 +1,5 @@
+import easing from "../../easing";
+
 import FramePosition from "../types/FramePosition";
 
 import getNearestLeftIndex from "./getNearestLeftIndex";
@@ -24,7 +26,8 @@ export default function createInterpolatedCompute(
     frameValues: number[][],
     beforeValue: string | null,
     afterValue: string | null,
-    extrapolating: boolean
+    extrapolating: boolean,
+    easingFunction: easing.Easing | null
 ): (frame: FramePosition) => string {
     return (frameNumber: FramePosition) => {
         if (frameNumber === "before") {
@@ -57,7 +60,11 @@ export default function createInterpolatedCompute(
         }
         const left: number = frameNumbers[index];
         const right: number = frameNumbers[index + 1];
-        const progress: number = (frameNumber-left)/(right-left);
+        let progress: number = (frameNumber-left)/(right-left);
+        // the extended segments stay linear: an easing is defined only inside its segment
+        if (easingFunction != null && progress >= 0 && progress <= 1) {
+            progress = easingFunction(progress);
+        }
         return constructString(shape, frameValues[index], frameValues[index + 1], progress);
     };
 }

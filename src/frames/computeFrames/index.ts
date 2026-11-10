@@ -1,6 +1,7 @@
 import math from "../../math";
 
 import FramePosition from "../types/FramePosition";
+import InterpolationOptions from "../types/InterpolationOptions";
 import Keyframe from "../types/Keyframe";
 import NeedUpdateAt from "../types/NeedUpdateAt";
 
@@ -12,7 +13,7 @@ import haveSameShape from "./haveSameShape";
 import parseKeyframeValue from "./parseKeyframeValue";
 
 // constants: the computed value only changes when passing from a keyframe to another
-export default function computeFrames(frames: Keyframe[], extrapolate: boolean = false): {
+export default function computeFrames(frames: Keyframe[], options: InterpolationOptions = {}): {
     compute: (frame: FramePosition) => string,
     needUpdateAt: NeedUpdateAt,
     constants: boolean
@@ -67,14 +68,14 @@ export default function computeFrames(frames: Keyframe[], extrapolate: boolean =
         };
     }
     // extrapolating needs a segment to extend, otherwise the flag is ignored
-    const extrapolating: boolean = extrapolate && frameNumbers.length >= 2;
+    const extrapolating: boolean = options.extrapolate === true && frameNumbers.length >= 2;
     if (extrapolating) {
         // values change over the whole range, not only between the keyframes
         needUpdateAt.start = 0;
         needUpdateAt.end = 1;
     }
     return {
-        compute: createInterpolatedCompute(shape!, frameNumbers, frameValues, beforeValue, afterValue, extrapolating),
+        compute: createInterpolatedCompute(shape!, frameNumbers, frameValues, beforeValue, afterValue, extrapolating, options.easing ?? null),
         needUpdateAt,
         constants: false
     };

@@ -31,7 +31,7 @@ The animation begins at `start - topOffset` and ends at `end + bottomOffset`
 >
 >`property` have format `[property.]*property`, so `style.width` works as well `customProperty`
 >
->`value` is linearly interpolated between frames
+>`value` is linearly interpolated between frames, unless an easing is set
 special `frame`s are "before" and "after"
 >
 >Before the first frame and after the last one the value of the nearest frame is kept
@@ -49,6 +49,27 @@ special `frame`s are "before" and "after"
 <!-- top is 0px at frame 0, 5px at 0.1, 45px at 0.9 and 50px at 1 -->
 ```
 
+`data-scroll-(property)-easing="(easing)"`
+>Applies `easing` to every interpolation segment of `property`, like `animation-timing-function` does between CSS keyframes
+>
+>`easing` is one of:
+>- `linear`
+>- a function of [easings.net](https://easings.net) in kebab-case: `ease-(in|out|in-out)-(sine|quad|cubic|quart|quint|expo|circ|back|elastic|bounce)`, for example `ease-in-out-cubic` or `ease-out-bounce`
+>- the CSS functions `cubic-bezier(x1, y1, x2, y2)` and `steps(count, position)`
+>
+>An invalid value is ignored and the segments stay linear
+>
+>The segments extended by `-extrapolate` stay linear
+```html
+<div
+    data-scroll-style.top-0="0px"
+    data-scroll-style.top-0.5="100px"
+    data-scroll-style.top-1="0px"
+    data-scroll-style.top-easing="ease-in-out-cubic"
+></div>
+<!-- top eases in and out from 0px to 100px and back -->
+```
+
 `data-scroll-(method)()`
 >Calls `method` every frame with frame number as first and only argument `method(frame: number): number`
 ```js
@@ -61,11 +82,11 @@ ScrollAnimation.remove(document.querySelector("#element")) // removes only the #
 ```
 
 ### Render method
-By default animations are rendered on every animation frame, even when the page is still.
-`setMethod` switches to rendering only when something can have moved a parent:
+By default animations are rendered only when something can have moved a parent.
+`setMethod` switches to rendering on every animation frame, even when the page is still:
 ```js
-ScrollAnimation.setMethod(ScrollAnimation.METHOD.EVENTS); // render on events
-ScrollAnimation.setMethod(ScrollAnimation.METHOD.ANIMATION_FRAME); // render every frame (default)
+ScrollAnimation.setMethod(ScrollAnimation.METHOD.ANIMATION_FRAME); // render every frame
+ScrollAnimation.setMethod(ScrollAnimation.METHOD.EVENTS); // render on events (default)
 ```
 With `METHOD.EVENTS` a render is scheduled on the next frame after:
 - scroll of the page or of any inner scrollable container;

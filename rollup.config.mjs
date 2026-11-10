@@ -53,6 +53,27 @@ function serveTestPage(rootDirectory, port) {
     };
 }
 
+// CommonJS and UMD export the object itself, not a default property: index.d.ts says the same, while
+// index.d.mts gives the ES module only the default export, so named imports are refused
+function entryDeclarations() {
+    return {
+        name: "entry-declarations",
+        generateBundle(outputOptions, bundle) {
+            const declaration = bundle["index.d.ts"];
+            if (declaration != null && declaration.type === "asset") {
+                declaration.source = String(declaration.source).replace(/^export default (\w+);$/m, "export = $1;");
+            }
+            if (outputOptions.format === "es") {
+                this.emitFile({
+                    type: "asset",
+                    fileName: "index.d.mts",
+                    source: 'import dataScrollAnimation from "./index.js";\n\nexport default dataScrollAnimation;\n'
+                });
+            }
+        }
+    };
+}
+
 const library = {
     input: "src/index.ts",
     plugins: [
@@ -60,7 +81,8 @@ const library = {
             include: ["src/**/*.ts"],
             declaration: true,
             declarationDir: "dist"
-        })
+        }),
+        entryDeclarations()
     ],
     output: [
         {
@@ -70,7 +92,7 @@ const library = {
             esModule: true
         },
         {
-            file: "dist/index.es.js",
+            file: "dist/index.mjs",
             format: "es"
         }
     ]
