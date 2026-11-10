@@ -11,7 +11,8 @@
   "scripts": {
     "build": "rollup -c",
     "build:test": "rollup -c --environment BUILD:test",
-    "dev": "rollup -c --environment BUILD:test --watch"
+    "dev": "rollup -c --environment BUILD:test --watch",
+    "prepublishOnly": "npm run build"
   },
   "author": "Giuliano Collacchioni",
   "license": "MIT",
