@@ -3,7 +3,6 @@ import frames from "../frames";
 import parents from "../parents";
 import symbols from "../symbols";
 
-// creates or refreshes the scroll object of the element and moves it to the parent
 export default function attachScrollObject(
     element: HTMLElement,
     parent: parents.ScrollParent,

@@ -14,7 +14,6 @@ namespace rendering {
     export const applyRenders = _applyRenders;
     export const deleteScrollParent = _deleteScrollParent;
     export const endLoop = _endLoop;
-    // enums are values and types: both are exported
     export const METHOD = _METHOD;
     export type METHOD = _METHOD;
     export type Render = _Render;

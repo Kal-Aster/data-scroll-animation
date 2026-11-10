@@ -1,6 +1,5 @@
 import Keyframe from "../Keyframe";
 
-// numeric keyframes in ascending order, then "before" and "after"
 export default function compareKeyframePositions(firstFrame: Keyframe, secondFrame: Keyframe): number {
     const first = firstFrame[0], second = secondFrame[0];
     let result: number;

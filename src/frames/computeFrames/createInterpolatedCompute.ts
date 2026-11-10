@@ -17,7 +17,6 @@ function constructString(staticParts: string[], values: number[], nextValues: nu
     return constructedString;
 }
 
-// for values whose numbers are interpolated between the keyframes
 export default function createInterpolatedCompute(
     shape: string[],
     frameNumbers: number[],

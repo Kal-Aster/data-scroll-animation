@@ -3,7 +3,6 @@ import _ScrollParent from "./ScrollParent";
 
 namespace parents {
     export const baseScrollParent = _baseScrollParent;
-    // classes are values and types: both are exported
     export const ScrollParent = _ScrollParent;
     export type ScrollParent = _ScrollParent;
 }

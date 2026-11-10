@@ -1,8 +1,7 @@
 import frames from "../../frames";
 import AnimatedProperty from "./AnimatedProperty";
 
-// "style.top" animates the top of element.style, "method()" calls element.method:
-// null when the key is not valid
+// "style.top" animates the top of element.style, "method()" calls element.method
 export default function createAnimatedProperty(
     element: HTMLElement,
     key: string,

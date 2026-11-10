@@ -2,7 +2,6 @@ import FramePosition from "../FramePosition";
 import Keyframe from "../Keyframe";
 import getNearestLeftIndex from "./getNearestLeftIndex";
 
-// for values that can't be interpolated: each keyframe's value is kept until the next keyframe
 export default function createConstantCompute(
     frames: Keyframe[],
     frameNumbers: number[],

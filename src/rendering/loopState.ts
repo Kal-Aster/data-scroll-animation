@@ -1,6 +1,5 @@
 import METHOD from "./METHOD";
 
-// state of the render loop, shared by the functions that start, stop and drive it
 const loopState: {
     method: METHOD,
     started: boolean,
