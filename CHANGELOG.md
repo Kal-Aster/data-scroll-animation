@@ -17,6 +17,7 @@
 - horizontally scrolling parents are recognized and parents that can't scroll are ignored
 
 ### Changed
+- importing the library doesn't access the DOM anymore, so it can be imported during server-side rendering
 - interpolated values are rounded to 4 decimals
 - numbers like `.5`, `+5` and `1e-3` are recognized, hexadecimal colors are not interpolated
 - a property is rendered only when its value can have changed
