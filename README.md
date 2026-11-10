@@ -52,7 +52,12 @@ special `frame`s are "before" and "after"
 `data-scroll-(property)-easing="(easing)"`
 >Applies `easing` to every interpolation segment of `property`, like `animation-timing-function` does between CSS keyframes
 >
->`easing` is one of the CSS easing functions: `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(x1, y1, x2, y2)`, `steps(count, position)`, `step-start` and `step-end`; `linear()` with points is not supported. An invalid value is ignored and the segments stay linear
+>`easing` is one of:
+>- `linear`
+>- a function of [easings.net](https://easings.net) in kebab-case: `ease-(in|out|in-out)-(sine|quad|cubic|quart|quint|expo|circ|back|elastic|bounce)`, for example `ease-in-out-cubic` or `ease-out-bounce`
+>- the CSS functions `cubic-bezier(x1, y1, x2, y2)` and `steps(count, position)`
+>
+>An invalid value is ignored and the segments stay linear
 >
 >The segments extended by `-extrapolate` stay linear
 ```html
@@ -60,7 +65,7 @@ special `frame`s are "before" and "after"
     data-scroll-style.top-0="0px"
     data-scroll-style.top-0.5="100px"
     data-scroll-style.top-1="0px"
-    data-scroll-style.top-easing="ease-in-out"
+    data-scroll-style.top-easing="ease-in-out-cubic"
 ></div>
 <!-- top eases in and out from 0px to 100px and back -->
 ```
