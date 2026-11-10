@@ -1,4 +1,4 @@
-import * as scrollAnimation from "../../src/index";
+import scrollAnimation from "../../src/index";
 
 (window as any).scrollAnimation = scrollAnimation;
 // scrollAnimation.add(document.body.querySelector("#test") as HTMLElement);

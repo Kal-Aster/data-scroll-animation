@@ -1,17 +1,60 @@
 {
   "name": "data-scroll-animation",
-  "version": "1.3.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "Animates element properties on scroll, declared with data attributes",
+  "keywords": [
+    "scroll",
+    "animation",
+    "scroll-animation",
+    "parallax",
+    "data-attributes",
+    "easing"
+  ],
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^21.0.0",
-    "@rollup/plugin-node-resolve": "^13.0.5",
-    "rollup": "^2.58.0",
-    "rollup-plugin-ts": "^1.4.7"
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@rollup/plugin-typescript": "^12.3.1",
+    "@typescript-eslint/parser": "^8.72.2",
+    "eslint": "^10.14.0",
+    "rollup": "^4.68.1",
+    "tslib": "^2.9.1",
+    "typescript": "^5.9.3"
   },
-  "scripts": {},
+  "scripts": {
+    "build": "rollup -c",
+    "build:test": "rollup -c --environment BUILD:test",
+    "dev": "rollup -c --environment BUILD:test --watch",
+    "prepublishOnly": "npm run lint && npm run build && npm run check:types",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "check:types": "attw --pack ."
+  },
   "author": "Giuliano Collacchioni",
   "license": "MIT",
+  "homepage": "https://github.com/Kal-Aster/data-scroll-animation#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kal-Aster/data-scroll-animation.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Kal-Aster/data-scroll-animation/issues"
+  },
   "main": "dist/index.js",
-  "module": "dist/index.es.js",
-  "jsnext:main": "dist/index.es.js"
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "default": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ]
 }
