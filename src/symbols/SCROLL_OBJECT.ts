@@ -1,4 +1,4 @@
-import type elements from "../elements";
+import elements from "../elements";
 
 const SCROLL_OBJECT: unique symbol = Symbol("scroll-object");
 

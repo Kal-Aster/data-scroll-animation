@@ -1,5 +1,5 @@
 import frames from "../../frames";
-import type AnimatedProperty from "./AnimatedProperty";
+import AnimatedProperty from "./AnimatedProperty";
 
 // "style.top" animates the top of element.style, "method()" calls element.method:
 // null when the key is not valid

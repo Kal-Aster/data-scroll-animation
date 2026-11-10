@@ -1,4 +1,4 @@
-import type parents from "../parents";
+import parents from "../parents";
 
 const SCROLL_PARENT: unique symbol = Symbol("scroll-parent");
 

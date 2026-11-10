@@ -1,5 +1,5 @@
-import type elements from "./elements";
-import type frames from "./frames";
+import elements from "./elements";
+import frames from "./frames";
 import parents from "./parents";
 import rendering from "./rendering";
 import symbols from "./symbols";

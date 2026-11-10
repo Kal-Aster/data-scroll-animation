@@ -1,7 +1,7 @@
 import math from "../../math";
-import type FramePosition from "../FramePosition";
-import type Keyframe from "../Keyframe";
-import type NeedUpdateAt from "../NeedUpdateAt";
+import FramePosition from "../FramePosition";
+import Keyframe from "../Keyframe";
+import NeedUpdateAt from "../NeedUpdateAt";
 import compareKeyframePositions from "./compareKeyframePositions";
 import createBeforeAfterCompute from "./createBeforeAfterCompute";
 import createConstantCompute from "./createConstantCompute";

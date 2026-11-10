@@ -1,4 +1,4 @@
-import type frames from "../../frames";
+import frames from "../../frames";
 
 // the value doesn't change between the last rendered frame and this one
 // when both are outside the update range on the same side

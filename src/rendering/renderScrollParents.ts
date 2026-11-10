@@ -1,5 +1,5 @@
 import applyRenders from "./applyRenders";
-import type Render from "./Render";
+import Render from "./Render";
 import scrollParents from "./scrollParents";
 
 export default function renderScrollParents(): void {

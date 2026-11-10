@@ -1,6 +1,6 @@
-import type elements from "../../elements";
-import type frames from "../../frames";
-import type rendering from "../../rendering";
+import elements from "../../elements";
+import frames from "../../frames";
+import rendering from "../../rendering";
 import symbols from "../../symbols";
 import getDocumentTop from "./getDocumentTop";
 import getScrollAncestors from "./getScrollAncestors";

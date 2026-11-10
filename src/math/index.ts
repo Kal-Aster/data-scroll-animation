@@ -1,9 +1,9 @@
-import nullableMaxDefault from "./nullableMax";
-import nullableMinDefault from "./nullableMin";
+import _nullableMax from "./nullableMax";
+import _nullableMin from "./nullableMin";
 
 namespace math {
-    export const nullableMax = nullableMaxDefault;
-    export const nullableMin = nullableMinDefault;
+    export const nullableMax = _nullableMax;
+    export const nullableMin = _nullableMin;
 }
 
 export default math;

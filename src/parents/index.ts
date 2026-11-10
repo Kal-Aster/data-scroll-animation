@@ -1,11 +1,11 @@
-import baseScrollParentDefault from "./baseScrollParent";
-import ScrollParentDefault from "./ScrollParent";
+import _baseScrollParent from "./baseScrollParent";
+import _ScrollParent from "./ScrollParent";
 
 namespace parents {
-    export const baseScrollParent = baseScrollParentDefault;
+    export const baseScrollParent = _baseScrollParent;
     // classes are values and types: both are exported
-    export const ScrollParent = ScrollParentDefault;
-    export type ScrollParent = ScrollParentDefault;
+    export const ScrollParent = _ScrollParent;
+    export type ScrollParent = _ScrollParent;
 }
 
 export default parents;

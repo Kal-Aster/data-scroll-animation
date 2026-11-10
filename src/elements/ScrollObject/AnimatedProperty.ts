@@ -1,4 +1,4 @@
-import type frames from "../../frames";
+import frames from "../../frames";
 
 type AnimatedProperty = {
     // object owning the property, null when the path to it is broken
@@ -13,4 +13,4 @@ type AnimatedProperty = {
     lastWrittenValue: string | null
 };
 
-export type { AnimatedProperty as default };
+export default AnimatedProperty;

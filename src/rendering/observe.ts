@@ -1,4 +1,4 @@
-import type parents from "../parents";
+import parents from "../parents";
 import loopState from "./loopState";
 import resizeObserverOptions from "./resizeObserverOptions";
 

@@ -1,8 +1,8 @@
-import type frames from "../../frames";
+import frames from "../../frames";
 import math from "../../math";
-import type rendering from "../../rendering";
+import rendering from "../../rendering";
 import symbols from "../../symbols";
-import type AnimatedProperty from "./AnimatedProperty";
+import AnimatedProperty from "./AnimatedProperty";
 import canSkipRender from "./canSkipRender";
 import createAnimatedProperty from "./createAnimatedProperty";
 

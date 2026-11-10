@@ -1,27 +1,27 @@
-import addScrollParentDefault from "./addScrollParent";
-import applyRendersDefault from "./applyRenders";
-import deleteScrollParentDefault from "./deleteScrollParent";
-import endLoopDefault from "./endLoop";
-import METHODDefault from "./METHOD";
-import type RenderDefault from "./Render";
-import requestRenderDefault from "./requestRender";
-import scrollParentsDefault from "./scrollParents";
-import setMethodDefault from "./setMethod";
-import startLoopDefault from "./startLoop";
+import _addScrollParent from "./addScrollParent";
+import _applyRenders from "./applyRenders";
+import _deleteScrollParent from "./deleteScrollParent";
+import _endLoop from "./endLoop";
+import _METHOD from "./METHOD";
+import _Render from "./Render";
+import _requestRender from "./requestRender";
+import _scrollParents from "./scrollParents";
+import _setMethod from "./setMethod";
+import _startLoop from "./startLoop";
 
 namespace rendering {
-    export const addScrollParent = addScrollParentDefault;
-    export const applyRenders = applyRendersDefault;
-    export const deleteScrollParent = deleteScrollParentDefault;
-    export const endLoop = endLoopDefault;
+    export const addScrollParent = _addScrollParent;
+    export const applyRenders = _applyRenders;
+    export const deleteScrollParent = _deleteScrollParent;
+    export const endLoop = _endLoop;
     // enums are values and types: both are exported
-    export const METHOD = METHODDefault;
-    export type METHOD = METHODDefault;
-    export type Render = RenderDefault;
-    export const requestRender = requestRenderDefault;
-    export const scrollParents = scrollParentsDefault;
-    export const setMethod = setMethodDefault;
-    export const startLoop = startLoopDefault;
+    export const METHOD = _METHOD;
+    export type METHOD = _METHOD;
+    export type Render = _Render;
+    export const requestRender = _requestRender;
+    export const scrollParents = _scrollParents;
+    export const setMethod = _setMethod;
+    export const startLoop = _startLoop;
 }
 
 export default rendering;

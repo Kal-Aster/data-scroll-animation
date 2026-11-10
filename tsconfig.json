@@ -6,8 +6,7 @@
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        "verbatimModuleSyntax": true
+        "forceConsistentCasingInFileNames": true
     },
     "include": ["src/**/*.ts", "test/src/**/*.ts"]
 }

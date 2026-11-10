@@ -1,4 +1,4 @@
-import type Keyframe from "../Keyframe";
+import Keyframe from "../Keyframe";
 
 // numeric keyframes in ascending order, then "before" and "after"
 export default function compareKeyframePositions(firstFrame: Keyframe, secondFrame: Keyframe): number {
