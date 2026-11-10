@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-11-10
 ### Breaking changes
 - the module exports a single default object: `import ScrollAnimation from "data-scroll-animation"` instead of
   `import * as ScrollAnimation` or named imports (the UMD global and `require` are unchanged)
