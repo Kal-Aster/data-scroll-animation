@@ -52,7 +52,7 @@ special `frame`s are "before" and "after"
 `data-scroll-(method)()`
 >Calls `method` every frame with frame number as first and only argument `method(frame: number): number`
 ```js
-import * as ScrollAnimation from "data-scroll-animation";
+import ScrollAnimation from "data-scroll-animation";
 
 ScrollAnimation.add(document.body); // adds all animation in the document
 ScrollAnimation.add(document.querySelector("#animation")) // adds only the #animation element
