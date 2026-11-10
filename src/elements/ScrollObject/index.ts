@@ -12,18 +12,21 @@ export default class ScrollObject {
     constructor(
         readonly element: HTMLElement,
         keyframesByKey: { [key: string]: frames.Keyframe[] },
-        extrapolatedKeys: { [key: string]: boolean } = {}
+        optionsByKey: { [key: string]: frames.InterpolationOptions } = {}
     ) {
-        this.refresh(keyframesByKey, extrapolatedKeys);
+        this.refresh(keyframesByKey, optionsByKey);
     }
-    refresh(keyframesByKey: { [key: string]: frames.Keyframe[] }, extrapolatedKeys: { [key: string]: boolean } = {}): ScrollObject {
+    refresh(
+        keyframesByKey: { [key: string]: frames.Keyframe[] },
+        optionsByKey: { [key: string]: frames.InterpolationOptions } = {}
+    ): ScrollObject {
         this.element[symbols.SCROLL_OBJECT] = this;
         this._frames = [];
         for (let key in keyframesByKey) {
             if (!Object.prototype.hasOwnProperty.call(keyframesByKey, key)) {
                 continue;
             }
-            const animatedProperty = createAnimatedProperty(this.element, key, keyframesByKey[key], extrapolatedKeys[key] === true);
+            const animatedProperty = createAnimatedProperty(this.element, key, keyframesByKey[key], optionsByKey[key] ?? {});
             if (animatedProperty == null) {
                 continue;
             }

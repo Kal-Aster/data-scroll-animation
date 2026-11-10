@@ -31,7 +31,7 @@ The animation begins at `start - topOffset` and ends at `end + bottomOffset`
 >
 >`property` have format `[property.]*property`, so `style.width` works as well `customProperty`
 >
->`value` is linearly interpolated between frames
+>`value` is linearly interpolated between frames, unless an easing is set
 special `frame`s are "before" and "after"
 >
 >Before the first frame and after the last one the value of the nearest frame is kept
@@ -47,6 +47,22 @@ special `frame`s are "before" and "after"
     data-scroll-style.top-extrapolate
 ></div>
 <!-- top is 0px at frame 0, 5px at 0.1, 45px at 0.9 and 50px at 1 -->
+```
+
+`data-scroll-(property)-easing="(easing)"`
+>Applies `easing` to every interpolation segment of `property`, like `animation-timing-function` does between CSS keyframes
+>
+>`easing` is one of the CSS easing functions: `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(x1, y1, x2, y2)`, `steps(count, position)`, `step-start` and `step-end`; `linear()` with points is not supported. An invalid value is ignored and the segments stay linear
+>
+>The segments extended by `-extrapolate` stay linear
+```html
+<div
+    data-scroll-style.top-0="0px"
+    data-scroll-style.top-0.5="100px"
+    data-scroll-style.top-1="0px"
+    data-scroll-style.top-easing="ease-in-out"
+></div>
+<!-- top eases in and out from 0px to 100px and back -->
 ```
 
 `data-scroll-(method)()`

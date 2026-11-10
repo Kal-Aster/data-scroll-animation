@@ -1,3 +1,4 @@
+import easing from "../easing";
 import frames from "../frames";
 import parents from "../parents";
 
@@ -7,7 +8,7 @@ import toPropertyName from "./toPropertyName";
 
 export default function parse(element: HTMLElement, parent: parents.ScrollParent, subtree: boolean = true): void {
     let scrollOptions: { [key: string]: frames.Keyframe[] } | null = null;
-    const extrapolatedKeys: { [key: string]: boolean } = {};
+    const optionsByKey: { [key: string]: frames.InterpolationOptions } = {};
     for (const attribute of element.attributes) {
         if (!attribute.name.startsWith("data-scroll-") && !attribute.name.startsWith("data-scroll.")) {
             continue;
@@ -55,7 +56,14 @@ export default function parse(element: HTMLElement, parent: parents.ScrollParent
                     position = frameName;
                 } else if (frameName === "extrapolate") {
                     // the attribute value is ignored
-                    extrapolatedKeys[propertyName] = true;
+                    (optionsByKey[propertyName] = optionsByKey[propertyName] || {}).extrapolate = true;
+                    continue;
+                } else if (frameName === "easing") {
+                    // an invalid easing is ignored, so the segments stay linear
+                    const easingFunction: easing.Easing | null = easing.parseEasing(attribute.value);
+                    if (easingFunction != null) {
+                        (optionsByKey[propertyName] = optionsByKey[propertyName] || {}).easing = easingFunction;
+                    }
                     continue;
                 } else {
                     continue;
@@ -65,7 +73,7 @@ export default function parse(element: HTMLElement, parent: parents.ScrollParent
         }
     }
     if (scrollOptions != null) {
-        attachScrollObject(element, parent, scrollOptions, extrapolatedKeys);
+        attachScrollObject(element, parent, scrollOptions, optionsByKey);
     }
     if (subtree) {
         for (const child of element.children) {
