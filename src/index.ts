@@ -511,22 +511,106 @@ function render(): void {
     applyRenders(renders);
 }
 
+export enum METHOD {
+    // renders every frame, also when nothing moves
+    ANIMATION_FRAME = 0,
+    // renders only after scroll, resize of the window or resize of a parent or of the document
+    EVENTS = 1
+}
+let method: METHOD = METHOD.ANIMATION_FRAME;
+
+let started: boolean = false;
 let animationFrameId: number | null = null;
+let resizeObserver: ResizeObserver | null = null;
+// scroll does not bubble: capture catches also the scroll of inner containers
+const scrollListenerOptions: AddEventListenerOptions = { capture: true, passive: true };
+const resizeObserverOptions: ResizeObserverOptions = { box: "border-box" };
+
+function observe(scrollParent: ScrollParent): void {
+    if (resizeObserver != null) {
+        resizeObserver.observe(scrollParent.element, resizeObserverOptions);
+    }
+}
+function unobserve(scrollParent: ScrollParent): void {
+    // the document element stays observed, its size changes when the content above any parent changes
+    if (resizeObserver != null && scrollParent.element !== document.documentElement) {
+        resizeObserver.unobserve(scrollParent.element);
+    }
+}
+function addScrollParent(scrollParent: ScrollParent): void {
+    scrollParents.add(scrollParent);
+    observe(scrollParent);
+}
+function deleteScrollParent(scrollParent: ScrollParent): void {
+    if (scrollParents.delete(scrollParent)) {
+        unobserve(scrollParent);
+    }
+}
+
 function startLoop(): void {
-    if (animationFrameId != null) {
+    if (started) {
         return;
     }
-    animationFrameId = requestAnimationFrame(function loop(): void {
-        render();
-        animationFrameId = requestAnimationFrame(loop);
-    });
+    started = true;
+    if (method === METHOD.ANIMATION_FRAME) {
+        animationFrameId = requestAnimationFrame(function loop(): void {
+            render();
+            animationFrameId = requestAnimationFrame(loop);
+        });
+        return;
+    }
+    window.addEventListener("scroll", requestRender, scrollListenerOptions);
+    window.addEventListener("resize", requestRender);
+    resizeObserver = new ResizeObserver(requestRender);
+    resizeObserver.observe(document.documentElement, resizeObserverOptions);
+    scrollParents.forEach(observe);
+    requestRender();
 }
 function endLoop(): void {
-    if (animationFrameId == null) {
+    if (!started) {
         return;
     }
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
+    started = false;
+    if (animationFrameId != null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    if (method === METHOD.EVENTS) {
+        window.removeEventListener("scroll", requestRender, scrollListenerOptions);
+        window.removeEventListener("resize", requestRender);
+        resizeObserver!.disconnect();
+        resizeObserver = null;
+    }
+}
+
+/**
+ * Schedules a render on the next frame. With `METHOD.EVENTS` it is needed when a parent moves
+ * without scrolling and without any resize of the parent itself or of the document,
+ * with `METHOD.ANIMATION_FRAME` it does nothing because every frame is rendered.
+ */
+export function requestRender(): void {
+    if (!started || method !== METHOD.EVENTS || animationFrameId != null) {
+        return;
+    }
+    animationFrameId = requestAnimationFrame(() => {
+        animationFrameId = null;
+        render();
+    });
+}
+
+export function setMethod(value: METHOD): void {
+    if (value !== METHOD.ANIMATION_FRAME && value !== METHOD.EVENTS) {
+        throw new TypeError("invalid method");
+    }
+    if (value === method) {
+        return;
+    }
+    const wasStarted: boolean = started;
+    endLoop();
+    method = value;
+    if (wasStarted) {
+        startLoop();
+    }
 }
 
 function getRefreshedParent(element: HTMLElement): ScrollParent {
@@ -536,7 +620,7 @@ function getRefreshedParent(element: HTMLElement): ScrollParent {
         return element[SCROLL_PARENT]!.refresh();
     }
     const parent = new ScrollParent(element);
-    scrollParents.add(parent);
+    addScrollParent(parent);
     return parent;
 }
 
@@ -639,10 +723,11 @@ export function add(element: HTMLElement, subtree: boolean = true): void {
     }
     parse(element, firstScrollParent, subtree);
     if (baseScrollParent.children.length > 0) {
-        scrollParents.add(baseScrollParent);
+        addScrollParent(baseScrollParent);
     }
     if (scrollParents.size > 0) {
         startLoop();
+        requestRender();
     }
 }
 export function remove(element: HTMLElement, renderFrame: FramePosition | null = null): void {
@@ -650,7 +735,7 @@ export function remove(element: HTMLElement, renderFrame: FramePosition | null =
     let scrollObject: ScrollObject | undefined = element[SCROLL_OBJECT];
     if (scrollParent != null) {
         if (scrollParent.element === element) {
-            scrollParents.delete(scrollParent);
+            deleteScrollParent(scrollParent);
         }
         if (scrollObject != null) {
             scrollParent.remove(scrollObject);
@@ -665,7 +750,7 @@ export function remove(element: HTMLElement, renderFrame: FramePosition | null =
         remove(child as HTMLElement, renderFrame);
     }
     if (scrollParent === baseScrollParent && baseScrollParent.children.length === 0) {
-        scrollParents.delete(baseScrollParent);
+        deleteScrollParent(baseScrollParent);
     }
     if (scrollParents.size === 0) {
         endLoop();
