@@ -1,4 +1,22 @@
 type FramePosition = number | "before" | "after";
+type Keyframe = [position: FramePosition, value: string];
+type NeedUpdateAt = {
+    before: boolean;
+    start: number | null;
+    end: number | null;
+    after: boolean;
+};
+type Render = [target: any, key: string, value: string | unknown[]];
+type Accessor = () => any;
+type AnimatedProperty = {
+    accessor: Accessor;
+    key: string;
+    isFunction: boolean;
+    compute: ((frame: FramePosition) => string) | null;
+    needUpdateAt: NeedUpdateAt;
+    constants: boolean;
+    lastWrittenValue: string | null;
+};
 declare const SCROLL_OBJECT: unique symbol;
 declare const SCROLL_PARENT: unique symbol;
 declare global {
@@ -8,68 +26,50 @@ declare global {
     }
 }
 declare class ScrollObject {
-    readonly el: HTMLElement;
-    constructor(el: HTMLElement, frames: {
-        [key: string]: [
-            FramePosition,
-            string
-        ][];
+    readonly element: HTMLElement;
+    constructor(element: HTMLElement, frames: {
+        [key: string]: Keyframe[];
+    }, extrapolatedKeys?: {
+        [key: string]: boolean;
     });
     refresh(frames: {
-        [key: string]: [
-            FramePosition,
-            string
-        ][];
+        [key: string]: Keyframe[];
+    }, extrapolatedKeys?: {
+        [key: string]: boolean;
     }): ScrollObject;
-    _needUpdateAt: [
-        boolean,
-        number | null,
-        number | null,
-        boolean
-    ];
-    _frames: [
-        () => [
-            any,
-            string
-        ],
-        boolean,
-        (frame: FramePosition) => string
-    ][];
+    _needUpdateAt: NeedUpdateAt;
+    _frames: AnimatedProperty[];
     _lastRenderFrame: FramePosition | null;
-    render(frame: FramePosition, renders: [
-        any,
-        string,
-        string | any[]
-    ][], force?: boolean): [
-        any,
-        string,
-        string | any[]
-    ][];
+    render(frame: FramePosition, renders: Render[], force?: boolean): Render[];
 }
 declare class ScrollParent {
-    readonly el: HTMLElement;
-    constructor(el: HTMLElement);
+    readonly element: HTMLElement;
+    constructor(element: HTMLElement);
     refresh(): ScrollParent;
+    _refreshParents(): void;
     children: ScrollObject[];
     trigger: number;
     topOffset: number;
     bottomOffset: number;
     _lastPosition: FramePosition | null;
-    _computedStyle: CSSStyleDeclaration;
+    _needsRefresh: boolean;
     _parents: HTMLElement[];
     _getRectTop(): number;
-    render(renders: [
-        any,
-        string,
-        string | any[]
-    ][], force?: boolean): [
-        any,
-        string,
-        string | any[]
-    ][];
-    remove(obj: ScrollObject): void;
-    add(obj: ScrollObject): void;
+    render(renders: Render[]): Render[];
+    remove(scrollObject: ScrollObject): void;
+    add(scrollObject: ScrollObject): void;
 }
-declare function add(element: HTMLElement, subtree?: boolean): void;
-declare function remove(element: HTMLElement, renderFrame?: number | "before" | "after" | null): void;
-export { add, remove };
+export declare enum METHOD {
+    ANIMATION_FRAME = 0,
+    EVENTS = 1
+}
+/**
+ * Schedules a render on the next frame. With `METHOD.EVENTS` it is needed when a parent moves
+ * without scrolling and without any resize of the parent itself or of the document,
+ * with `METHOD.ANIMATION_FRAME` it does nothing because every frame is rendered.
+ */
+export declare function requestRender(): void;
+export declare function setMethod(value: METHOD): void;
+export declare function add(element: HTMLElement, subtree?: boolean): void;
+export declare function remove(element: HTMLElement, renderFrame?: FramePosition | null): void;
+export {};

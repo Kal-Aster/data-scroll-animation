@@ -3,118 +3,128 @@
     factory();
 })((function () { 'use strict';
 
-    const EXTRAPOLATE = Symbol("extrapolate");
-    function computeFrames(frames) {
-        let staticString = null;
-        let indexes = [];
+    function nullableMin(first, second) {
+        if (first == null) {
+            return second;
+        }
+        return second == null ? first : Math.min(first, second);
+    }
+    function nullableMax(first, second) {
+        if (first == null) {
+            return second;
+        }
+        return second == null ? first : Math.max(first, second);
+    }
+    // numbers like "5", "-0.5", ".5", "+5" and "1e-3"; hexadecimal colors are matched too only to be
+    // skipped, so that their digits stay in the fixed parts instead of being interpolated
+    const NUMBER_PATTERN = /#[\da-f]+|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
+    // splits a keyframe value into its numbers and the fixed parts around them:
+    // staticParts always has one element more than values
+    function parseKeyframeValue(value) {
+        const normalizedValue = value.replace(/\s+/g, " ").trim()
+            .replace(/ ?, ?|\( | \)/g, match => match.trim());
+        const staticParts = [];
+        const values = [];
+        let previousMatchEnd = 0;
+        for (const match of normalizedValue.matchAll(NUMBER_PATTERN)) {
+            if (match[0][0] === "#") {
+                continue;
+            }
+            staticParts.push(normalizedValue.slice(previousMatchEnd, match.index));
+            values.push(parseFloat(match[0]));
+            previousMatchEnd = match.index + match[0].length;
+        }
+        staticParts.push(normalizedValue.slice(previousMatchEnd));
+        return { staticParts, values };
+    }
+    function haveSameShape(staticParts, otherStaticParts) {
+        return staticParts.length === otherStaticParts.length &&
+            staticParts.every((staticPart, index) => staticPart === otherStaticParts[index]);
+    }
+    // constants: the computed value only changes when passing from a keyframe to another
+    function computeFrames(frames, extrapolate = false) {
+        // fixed parts of the first keyframe: the keyframes are interpolated only if they all match it
+        let shape = null;
         let frameNumbers = [];
         let frameValues = [];
         let beforeValue = null;
         let afterValue = null;
-        const needUpdateAt = [false, null, null, false];
+        const needUpdateAt = { before: false, start: null, end: null, after: false };
         function getNearestLeftIndexOf(frameNumber) {
             if (frameNumbers.length === 0) {
                 return -1;
             }
             let leftIndex = 0;
-            for (let i = 1; i < frameNumbers.length; i++) {
-                if (frameNumbers[i] > frameNumber) {
+            for (let index = 1; index < frameNumbers.length; index++) {
+                if (frameNumbers[index] > frameNumber) {
                     break;
                 }
-                leftIndex = i;
+                leftIndex = index;
             }
             return leftIndex;
         }
         {
             let constants = false;
-            frames.sort((a, b) => {
+            frames.sort((firstFrame, secondFrame) => {
+                const first = firstFrame[0], second = secondFrame[0];
                 let result;
-                if (a[0] === "before") {
-                    result = b[0] === "after" ? -1 : b[0] === "before" ? 0 : 1;
+                if (first === "before") {
+                    result = second === "after" ? -1 : second === "before" ? 0 : 1;
                 }
-                else if (a[0] === "after") {
-                    result = b[0] === "after" ? 0 : b[0] === "before" ? 1 : -1;
+                else if (first === "after") {
+                    result = second === "after" ? 0 : second === "before" ? 1 : -1;
                 }
-                else if (b[0] === "before") {
+                else if (second === "before") {
                     result = -1;
                 }
-                else if (b[0] === "after") {
+                else if (second === "after") {
                     result = -1;
                 }
                 else {
-                    result = a[0] - b[0];
+                    result = first - second;
                 }
                 return result;
             });
-            frames.forEach(frame => {
-                if (frame[1] === EXTRAPOLATE) {
-                    if (frame[0] !== "after" && frame[0] !== "before") {
-                        frameNumbers.push(frame[0]);
-                    }
-                    return;
-                }
-                else if (frame[0] === "after") {
+            for (const frame of frames) {
+                if (frame[0] === "after") {
                     afterValue = frame[1];
-                    needUpdateAt[3] = true;
-                    return;
+                    needUpdateAt.after = true;
+                    continue;
                 }
                 else if (frame[0] === "before") {
                     beforeValue = frame[1];
-                    needUpdateAt[0] = true;
-                    return;
+                    needUpdateAt.before = true;
+                    continue;
                 }
-                let thisStaticString;
                 frameNumbers.push(frame[0]);
-                if (needUpdateAt[1] == null || needUpdateAt[1] > frame[0]) {
-                    needUpdateAt[1] = frame[0];
-                }
-                if (needUpdateAt[2] == null || needUpdateAt[2] < frame[0]) {
-                    needUpdateAt[2] = frame[0];
-                }
+                needUpdateAt.start = nullableMin(needUpdateAt.start, frame[0]);
+                needUpdateAt.end = nullableMax(needUpdateAt.end, frame[0]);
                 if (!constants) {
-                    thisStaticString = frame[1].trim()
-                        .replace(/[ ]*,[ ]*/g, ",")
-                        .replace(/(?:\([ ]+)/g, "(")
-                        .replace(/(?:\)[ ]+(?= \w))/g, ") ")
-                        .replace(/(?:\)[ ]{2,}(?! \w))/g, ")");
-                    const thisStaticStringEmpty = thisStaticString.replace(/-?\d+(?:\.\d+)?/g, "");
-                    const wasStaticStringNULL = staticString == null;
-                    if (wasStaticStringNULL) {
-                        staticString = thisStaticStringEmpty;
+                    const { staticParts, values } = parseKeyframeValue(frame[1]);
+                    if (shape == null) {
+                        shape = staticParts;
                     }
-                    if (thisStaticStringEmpty !== staticString) {
+                    // same fixed parts means same count and positions of the numbers
+                    if (haveSameShape(staticParts, shape)) {
+                        frameValues.push(values);
+                    }
+                    else {
                         constants = true;
                     }
-                    if (!constants) {
-                        let match;
-                        const thisValues = [];
-                        while (match = (/(?:-?\d+(?:\.\d+)?)/).exec(thisStaticString)) {
-                            let thisStaticStringArray = thisStaticString.split("");
-                            thisStaticStringArray.splice(match.index, match[0].length);
-                            thisStaticString = thisStaticStringArray.join("");
-                            thisValues.push(parseFloat(match[0]));
-                            if (wasStaticStringNULL) {
-                                indexes.push(match.index);
-                            }
-                        }
-                        frameValues.push(thisValues);
-                    }
                 }
-            });
+            }
             if (constants) {
+                // without before/after keep the first/last keyframe: the sort puts before and after
+                // after the keyframes, so the last keyframe is at frameNumbers.length - 1
+                const constantBeforeValue = beforeValue ?? frames[0][1];
+                const constantAfterValue = afterValue ?? frames[frameNumbers.length - 1][1];
                 return {
                     compute: (frameNumber) => {
                         if (frameNumber === "before") {
-                            if (beforeValue != null) {
-                                return beforeValue;
-                            }
-                            return frames[0][1];
+                            return constantBeforeValue;
                         }
                         else if (frameNumber === "after") {
-                            if (afterValue != null) {
-                                return afterValue;
-                            }
-                            return frames[frames.length - 1][1];
+                            return constantAfterValue;
                         }
                         const index = getNearestLeftIndexOf(frameNumber);
                         if (index === -1) {
@@ -122,7 +132,8 @@
                         }
                         return frames[index][1];
                     },
-                    needUpdateAt
+                    needUpdateAt,
+                    constants: true
                 };
             }
         }
@@ -137,26 +148,30 @@
                     }
                     return "";
                 },
-                needUpdateAt: [needUpdateAt[0], null, null, needUpdateAt[3]]
+                needUpdateAt: { before: needUpdateAt.before, start: null, end: null, after: needUpdateAt.after },
+                constants: true
             };
         }
-        const staticStringArray = staticString.split("").reduce((prev, current, index) => {
-            if (indexes.some(i => i === index)) {
-                prev.push("");
-            }
-            prev[prev.length - 1] += current;
-            return prev;
-        }, [""]);
-        function constructString(values) {
-            let constructedString = "";
-            let index = 0;
-            const indexesLength = indexes.length;
-            for (let i = 0; i < indexesLength; i++) {
-                constructedString += staticStringArray[index] + values[i].toString();
-                index++;
-            }
-            if (index < staticStringArray.length) {
-                constructedString += staticStringArray[index];
+        // extrapolating needs a segment to extend, otherwise the flag is ignored
+        const extrapolating = extrapolate && frameNumbers.length >= 2;
+        if (extrapolating) {
+            // values change over the whole range, not only between the keyframes
+            needUpdateAt.start = 0;
+            needUpdateAt.end = 1;
+        }
+        // every interpolated keyframe has the same shape, so it has staticStringArray.length - 1 values
+        const staticStringArray = shape;
+        const valuesLength = staticStringArray.length - 1;
+        function constructString(values, nextValues, percentage) {
+            let constructedString = staticStringArray[0];
+            for (let valueIndex = 0; valueIndex < valuesLength; valueIndex++) {
+                let value = values[valueIndex];
+                if (nextValues !== null) {
+                    // rounded to 4 decimals so that close scroll positions give the same string and the browser
+                    // skips recalculating the style; toFixed is avoided because it adds trailing zeros
+                    value = Math.round((value + ((nextValues[valueIndex] - value) * percentage)) * 10000) / 10000;
+                }
+                constructedString += value.toString() + staticStringArray[valueIndex + 1];
             }
             return constructedString;
         }
@@ -166,49 +181,62 @@
                     if (beforeValue != null) {
                         return beforeValue;
                     }
-                    return constructString(frameValues[0]);
+                    return constructString(frameValues[0], null, 0);
                 }
                 else if (frameNumber === "after") {
                     if (afterValue != null) {
                         return afterValue;
                     }
-                    return constructString(frameValues[frameValues.length - 1]);
+                    return constructString(frameValues[frameValues.length - 1], null, 0);
                 }
                 frameNumber = Math.min(Math.max(0, frameNumber), 1);
-                const index = getNearestLeftIndexOf(frameNumber);
+                let index = getNearestLeftIndexOf(frameNumber);
                 if (index === -1) {
                     return "";
                 }
-                if (index === frameNumbers.length - 1) {
-                    return constructString(frameValues[index]);
+                if (frameNumber < frameNumbers[0]) {
+                    // before the first keyframe: keep the first value or extend the first segment
+                    if (!extrapolating) {
+                        return constructString(frameValues[0], null, 0);
+                    }
+                }
+                else if (index === frameNumbers.length - 1) {
+                    // after the last keyframe: keep the last value or extend the last segment
+                    if (!extrapolating) {
+                        return constructString(frameValues[index], null, 0);
+                    }
+                    index--;
                 }
                 const left = frameNumbers[index];
                 const right = frameNumbers[index + 1];
-                const perc = (frameNumber - left) / (right - left);
-                const computedValues = [];
-                const frameValue = frameValues[index];
-                const nextFrameValue = frameValues[index + 1];
-                const frameValueLength = frameValue.length;
-                for (let v_index = 0; v_index < frameValueLength; v_index++) {
-                    const value = frameValue[v_index];
-                    const nextValue = nextFrameValue[v_index];
-                    computedValues.push(value + ((nextValue - value) * perc));
-                }
-                return constructString(computedValues);
+                const progress = (frameNumber - left) / (right - left);
+                return constructString(frameValues[index], frameValues[index + 1], progress);
             },
-            needUpdateAt
+            needUpdateAt,
+            constants: false
         };
+    }
+    // the value doesn't change between the last rendered frame and this one
+    // when both are outside the update range on the same side
+    function canSkipRender(frame, lastRenderFrame, needUpdateAt) {
+        return (lastRenderFrame != null &&
+            frame !== "before" && frame !== "after" &&
+            lastRenderFrame !== "before" &&
+            lastRenderFrame !== "after" &&
+            (needUpdateAt.start == null || needUpdateAt.end == null ||
+                (frame < needUpdateAt.start && lastRenderFrame < needUpdateAt.start) ||
+                (frame > needUpdateAt.end && lastRenderFrame > needUpdateAt.end)));
     }
     const SCROLL_OBJECT = Symbol("scroll-object");
     const SCROLL_PARENT = Symbol("scroll-parent");
     class ScrollObject {
-        el;
-        constructor(el, frames) {
-            this.el = el;
-            this.refresh(frames);
+        element;
+        constructor(element, frames, extrapolatedKeys = {}) {
+            this.element = element;
+            this.refresh(frames, extrapolatedKeys);
         }
-        refresh(frames) {
-            this.el[SCROLL_OBJECT] = this;
+        refresh(frames, extrapolatedKeys = {}) {
+            this.element[SCROLL_OBJECT] = this;
             this._frames = [];
             for (let key in frames) {
                 if (!Object.prototype.hasOwnProperty.call(frames, key)) {
@@ -219,50 +247,46 @@
                 if (!isValid) {
                     continue;
                 }
-                const { compute, needUpdateAt } = computeFrames(frames[key]);
-                if (isFunction && needUpdateAt.every((value, index) => {
-                    if (index === 0 || index === 3) {
-                        return value === false;
-                    }
-                    return value === null;
-                })) {
-                    needUpdateAt[0] = true;
-                    needUpdateAt[1] = 0;
-                    needUpdateAt[2] = 1;
-                    needUpdateAt[3] = true;
+                const hasFrames = frames[key].length > 0;
+                const { compute, needUpdateAt, constants } = computeFrames(frames[key], extrapolatedKeys[key] === true);
+                if (isFunction &&
+                    !needUpdateAt.before && needUpdateAt.start == null &&
+                    needUpdateAt.end == null && !needUpdateAt.after) {
+                    needUpdateAt.before = true;
+                    needUpdateAt.start = 0;
+                    needUpdateAt.end = 1;
+                    needUpdateAt.after = true;
                 }
                 const keyLength = splitKey.length;
                 const accessor = () => {
-                    let lastObject = this.el;
-                    for (let i = 0; i < keyLength; i++) {
+                    let lastObject = this.element;
+                    for (let keyIndex = 0; keyIndex < keyLength; keyIndex++) {
                         if (lastObject == null) {
-                            return [null, ""];
+                            return null;
                         }
-                        lastObject = lastObject[splitKey[i]];
+                        lastObject = lastObject[splitKey[keyIndex]];
                     }
-                    return [lastObject, lastKey];
+                    return lastObject;
                 };
-                this._frames.push([accessor, isFunction != null, compute]);
-                this._needUpdateAt[0] = this._needUpdateAt[0] || needUpdateAt[0];
-                if (this._needUpdateAt[1] !== needUpdateAt[1] &&
-                    needUpdateAt[1] != null && (this._needUpdateAt[1] == null ||
-                    needUpdateAt[1] < this._needUpdateAt[1])) {
-                    this._needUpdateAt[1] = needUpdateAt[1];
-                }
-                if (this._needUpdateAt[2] !== needUpdateAt[2] &&
-                    needUpdateAt[2] != null && (this._needUpdateAt[2] == null ||
-                    needUpdateAt[2] > this._needUpdateAt[2])) {
-                    this._needUpdateAt[2] = needUpdateAt[2];
-                }
-                this._needUpdateAt[3] = this._needUpdateAt[3] || needUpdateAt[3];
+                this._frames.push({
+                    accessor,
+                    key: lastKey,
+                    isFunction: isFunction != null,
+                    compute: isFunction && !hasFrames ? null : compute,
+                    needUpdateAt,
+                    constants,
+                    lastWrittenValue: null
+                });
+                this._needUpdateAt.before = this._needUpdateAt.before || needUpdateAt.before;
+                this._needUpdateAt.start = nullableMin(this._needUpdateAt.start, needUpdateAt.start);
+                this._needUpdateAt.end = nullableMax(this._needUpdateAt.end, needUpdateAt.end);
+                this._needUpdateAt.after = this._needUpdateAt.after || needUpdateAt.after;
             }
             this._lastRenderFrame = null;
-            this.el[SCROLL_PARENT].refresh();
+            this.element[SCROLL_PARENT].refresh();
             return this;
         }
-        _needUpdateAt = [false, null, null, false];
-        // _frames: { [key: string]: (frame: FramePosition) => string } = {};
-        // [ accessor => [object, key], isFunction, computer ]
+        _needUpdateAt = { before: false, start: null, end: null, after: false };
         _frames = [];
         _lastRenderFrame = null;
         render(frame, renders, force = false) {
@@ -270,31 +294,39 @@
                 this._lastRenderFrame === frame) {
                 return renders;
             }
-            if (this._lastRenderFrame != null &&
-                frame !== "before" && frame !== "after" &&
-                this._lastRenderFrame !== "before" &&
-                this._lastRenderFrame !== "after" &&
-                ((this._needUpdateAt[1] == null || frame < this._needUpdateAt[1]) ||
-                    (this._needUpdateAt[2] == null || frame > this._needUpdateAt[2])) &&
-                ((this._needUpdateAt[1] == null || this._lastRenderFrame < this._needUpdateAt[1]) ||
-                    (this._needUpdateAt[2] == null || this._lastRenderFrame > this._needUpdateAt[2]))) {
+            if (canSkipRender(frame, this._lastRenderFrame, this._needUpdateAt)) {
                 return renders;
             }
+            const lastRenderFrame = this._lastRenderFrame;
             this._lastRenderFrame = frame;
-            for (let i = this._frames.length - 1; i >= 0; i--) {
-                const currentFrame = this._frames[i];
-                const accessor = currentFrame[0], isFunction = currentFrame[1], compute = currentFrame[2];
-                const accessorResult = accessor();
-                const object = accessorResult[0];
+            for (let frameIndex = this._frames.length - 1; frameIndex >= 0; frameIndex--) {
+                const animatedProperty = this._frames[frameIndex];
+                const { accessor, key, isFunction, compute } = animatedProperty;
+                // functions are always called
+                if (!isFunction && canSkipRender(frame, lastRenderFrame, animatedProperty.needUpdateAt)) {
+                    continue;
+                }
+                const object = accessor();
                 if (object == null) {
                     continue;
                 }
-                const key = accessorResult[1];
-                if (isFunction) {
+                if (compute == null) {
+                    renders.push([object, key, [frame]]);
+                }
+                else if (isFunction) {
                     renders.push([object, key, [
                             frame,
-                            ...compute(frame).split(",").map(t => t.trim()).filter(t => t !== "")
+                            ...compute(frame).split(",").map(argument => argument.trim()).filter(argument => argument !== "")
                         ]]);
+                }
+                else if (animatedProperty.constants) {
+                    const value = compute(frame);
+                    if (value === animatedProperty.lastWrittenValue) {
+                        continue;
+                    }
+                    // every queued render is applied, so the value can be considered written
+                    animatedProperty.lastWrittenValue = value;
+                    renders.push([object, key, value]);
                 }
                 else {
                     renders.push([object, key, compute(frame)]);
@@ -303,108 +335,133 @@
             return renders;
         }
     }
+    function canScroll(overflow) {
+        return overflow !== "visible" && overflow !== "clip";
+    }
     function getFirstScrollParent(element) {
         if (element == null) {
             return null;
         }
-        if (element.scrollHeight !== element.clientHeight ||
-            element.scrollWidth !== element.scrollWidth) {
-            return element;
+        const overflowsVertically = element.scrollHeight !== element.clientHeight;
+        const overflowsHorizontally = element.scrollWidth !== element.clientWidth;
+        if (overflowsVertically || overflowsHorizontally) {
+            // the content sticking out of an element with overflow visible or clip does not make it scroll
+            const style = getComputedStyle(element);
+            if ((overflowsVertically && canScroll(style.overflowY)) ||
+                (overflowsHorizontally && canScroll(style.overflowX))) {
+                return element;
+            }
         }
         return getFirstScrollParent(element.parentElement);
     }
     class ScrollParent {
-        el;
-        constructor(el) {
-            this.el = el;
-            el[SCROLL_PARENT] = this;
-            this._computedStyle = window.getComputedStyle(this.el);
+        element;
+        constructor(element) {
+            this.element = element;
+            element[SCROLL_PARENT] = this;
         }
         refresh() {
             this._lastPosition = null;
+            this._needsRefresh = true;
+            return this;
+        }
+        _refreshParents() {
+            this._needsRefresh = false;
             this._parents = [];
-            let el = this.el;
+            let ancestor = this.element;
             while (true) {
-                el = getFirstScrollParent(el);
-                if (el == null) {
+                ancestor = getFirstScrollParent(ancestor);
+                if (ancestor == null) {
                     break;
                 }
-                if (el !== this.el && el !== document.documentElement) {
-                    this._parents.push(el);
+                // the scroll of the document is window.scrollY, already subtracted in _getRectTop
+                if (ancestor !== this.element &&
+                    ancestor !== document.documentElement &&
+                    ancestor !== document.scrollingElement) {
+                    this._parents.push(ancestor);
                 }
-                el = el.parentElement;
+                ancestor = ancestor.parentElement;
             }
-            return this;
         }
         children = [];
         trigger = 0;
         topOffset = 0;
         bottomOffset = 0;
         _lastPosition = null;
-        _computedStyle;
+        _needsRefresh = true;
         _parents = [];
+        // offsetTop ignores the CSS transforms, unlike getBoundingClientRect:
+        // an animation transforming an ancestor does not move the range it is computed on
         _getRectTop() {
-            let top = this.el.offsetTop;
-            let lastParentScrollTop = null;
-            for (let i = this._parents.length - 1; i >= 0; i--) {
-                const parent = this._parents[i];
-                top += parent.offsetTop - parent.scrollTop;
-                if (parent.parentElement == null) {
-                    lastParentScrollTop = parent.scrollTop;
+            // position in the document, going up the offsetParent chain
+            let top = 0;
+            let element = this.element;
+            while (true) {
+                top += element.offsetTop;
+                const offsetParent = element.offsetParent;
+                // when the offsetParent is the body, offsetTop is already relative to the document
+                if (offsetParent == null || offsetParent === document.body) {
+                    break;
                 }
+                // offsetTop is relative to the padding edge of the offsetParent, not to its border
+                top += offsetParent.clientTop;
+                element = offsetParent;
             }
-            return top - (lastParentScrollTop == window.pageYOffset ? 0 : window.pageYOffset);
+            // scroll of the ancestors
+            for (let parentIndex = this._parents.length - 1; parentIndex >= 0; parentIndex--) {
+                top -= this._parents[parentIndex].scrollTop;
+            }
+            return top - window.scrollY;
         }
-        ;
-        render(renders, force = false) {
-            if (this.children.length === 0 || (this.el.clientHeight === 0 && this.el.clientWidth === 0)) {
+        render(renders) {
+            if (this.children.length === 0 || (this.element.clientHeight === 0 && this.element.clientWidth === 0)) {
                 return renders;
             }
-            // const rect: DOMRect = this.el.getBoundingClientRect();
-            // const rectTop: number = rect.top;
-            // const rectBottom: number = rect.bottom;
+            if (this._needsRefresh) {
+                this._refreshParents();
+            }
             const rectTop = this._getRectTop();
-            const rectBottom = rectTop + this.el.offsetHeight;
+            const rectBottom = rectTop + this.element.offsetHeight;
             const trigger = document.documentElement.clientHeight * this.trigger;
             const top = rectTop - this.topOffset;
             const bottom = rectBottom + this.bottomOffset;
-            const position = (trigger - top) / (bottom - top);
-            const actualPosition = position > 1 ? "after" : position < 0 ? "before" : position;
-            if (actualPosition === this._lastPosition && !force) {
+            let actualPosition;
+            if (bottom - top <= 0) {
+                // empty range: avoid dividing by zero, decide only by the trigger
+                actualPosition = trigger < top ? "before" : "after";
+            }
+            else {
+                const position = (trigger - top) / (bottom - top);
+                actualPosition = position > 1 ? "after" : position < 0 ? "before" : position;
+            }
+            if (actualPosition === this._lastPosition) {
                 return renders;
             }
             this._lastPosition = actualPosition;
-            for (let i = this.children.length - 1; i >= 0; i--) {
-                this.children[i].render(this._lastPosition, renders, force);
+            for (let childIndex = this.children.length - 1; childIndex >= 0; childIndex--) {
+                this.children[childIndex].render(this._lastPosition, renders);
             }
-            // this.el.dispatchEvent(new CustomEvent("render", { detail: { position: this._lastPosition }, bubbles: false }));
             return renders;
         }
-        remove(obj) {
-            let index = -1;
-            if (this.children.some((child, i) => { index = i; return child === obj || child.el === obj.el; })) {
+        remove(scrollObject) {
+            const index = this.children.findIndex(child => child === scrollObject || child.element === scrollObject.element);
+            if (index !== -1) {
                 this.children.splice(index, 1);
                 this._lastPosition = null;
             }
         }
-        add(obj) {
-            this.remove(obj);
-            this.children.push(obj);
+        add(scrollObject) {
+            this.remove(scrollObject);
+            this.children.push(scrollObject);
             this._lastPosition = null;
         }
     }
     const baseScrollParent = new ScrollParent(document.documentElement);
     document.body[SCROLL_PARENT] = baseScrollParent;
-    const scrollParents = [
-        baseScrollParent
-    ];
-    function render() {
-        const renders = [];
-        for (let i = scrollParents.length - 1; i >= 0; i--) {
-            scrollParents[i].render(renders);
-        }
-        for (let i = renders.length - 1; i >= 0; i--) {
-            const render = renders[i];
+    const scrollParents = new Set();
+    function applyRenders(renders) {
+        for (let renderIndex = renders.length - 1; renderIndex >= 0; renderIndex--) {
+            const render = renders[renderIndex];
             const result = render[2];
             const object = render[0];
             if (Array.isArray(result)) {
@@ -415,59 +472,145 @@
             }
         }
     }
-    let stop = false;
+    function render() {
+        const renders = [];
+        scrollParents.forEach(scrollParent => { scrollParent.render(renders); });
+        applyRenders(renders);
+    }
+    var METHOD;
+    (function (METHOD) {
+        // renders every frame, also when nothing moves
+        METHOD[METHOD["ANIMATION_FRAME"] = 0] = "ANIMATION_FRAME";
+        // renders only after scroll, resize of the window or resize of a parent or of the document
+        METHOD[METHOD["EVENTS"] = 1] = "EVENTS";
+    })(METHOD || (METHOD = {}));
+    let method = METHOD.ANIMATION_FRAME;
     let started = false;
+    let animationFrameId = null;
+    let resizeObserver = null;
+    // scroll does not bubble: capture catches also the scroll of inner containers
+    const scrollListenerOptions = { capture: true, passive: true };
+    const resizeObserverOptions = { box: "border-box" };
+    function observe(scrollParent) {
+        if (resizeObserver != null) {
+            resizeObserver.observe(scrollParent.element, resizeObserverOptions);
+        }
+    }
+    function unobserve(scrollParent) {
+        // the document element stays observed, its size changes when the content above any parent changes
+        if (resizeObserver != null && scrollParent.element !== document.documentElement) {
+            resizeObserver.unobserve(scrollParent.element);
+        }
+    }
+    function addScrollParent(scrollParent) {
+        scrollParents.add(scrollParent);
+        observe(scrollParent);
+    }
+    function deleteScrollParent(scrollParent) {
+        if (scrollParents.delete(scrollParent)) {
+            unobserve(scrollParent);
+        }
+    }
     function startLoop() {
-        stop = false;
         if (started) {
             return;
         }
         started = true;
-        requestAnimationFrame(function fn() {
-            if (!stop) {
+        if (method === METHOD.ANIMATION_FRAME) {
+            animationFrameId = requestAnimationFrame(function loop() {
                 render();
-                requestAnimationFrame(fn);
-            }
-        });
+                animationFrameId = requestAnimationFrame(loop);
+            });
+            return;
+        }
+        window.addEventListener("scroll", requestRender, scrollListenerOptions);
+        window.addEventListener("resize", requestRender);
+        resizeObserver = new ResizeObserver(requestRender);
+        resizeObserver.observe(document.documentElement, resizeObserverOptions);
+        scrollParents.forEach(observe);
+        requestRender();
     }
     function endLoop() {
-        stop = true;
+        if (!started) {
+            return;
+        }
         started = false;
+        if (animationFrameId != null) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        if (method === METHOD.EVENTS) {
+            window.removeEventListener("scroll", requestRender, scrollListenerOptions);
+            window.removeEventListener("resize", requestRender);
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
+    }
+    /**
+     * Schedules a render on the next frame. With `METHOD.EVENTS` it is needed when a parent moves
+     * without scrolling and without any resize of the parent itself or of the document,
+     * with `METHOD.ANIMATION_FRAME` it does nothing because every frame is rendered.
+     */
+    function requestRender() {
+        if (!started || method !== METHOD.EVENTS || animationFrameId != null) {
+            return;
+        }
+        animationFrameId = requestAnimationFrame(() => {
+            animationFrameId = null;
+            render();
+        });
+    }
+    function setMethod(value) {
+        if (value !== METHOD.ANIMATION_FRAME && value !== METHOD.EVENTS) {
+            throw new TypeError("invalid method");
+        }
+        if (value === method) {
+            return;
+        }
+        const wasStarted = started;
+        endLoop();
+        method = value;
+        if (wasStarted) {
+            startLoop();
+        }
     }
     function getRefreshedParent(element) {
-        if (element[SCROLL_PARENT]) {
+        // an animated element stores the parent it belongs to, which is an ancestor's:
+        // reuse it only if it is the element's own
+        if (element[SCROLL_PARENT] && element[SCROLL_PARENT].element === element) {
             return element[SCROLL_PARENT].refresh();
         }
         const parent = new ScrollParent(element);
-        scrollParents.push(parent);
+        addScrollParent(parent);
         return parent;
     }
     function parse(element, parent, subtree = true) {
         let scrollOptions = null;
-        Array.prototype.forEach.call(element.attributes, (attr) => {
-            if (!attr.name.match(/^data-scroll[\-\.]/)) {
-                return;
+        const extrapolatedKeys = {};
+        for (const attribute of element.attributes) {
+            if (!attribute.name.startsWith("data-scroll-") && !attribute.name.startsWith("data-scroll.")) {
+                continue;
             }
-            const data = attr.name.substr(11);
+            const data = attribute.name.slice(11);
             if (data === "-parent") {
                 parent = getRefreshedParent(element);
             }
             else if (data === "-trigger") {
-                let trigger = parseFloat(attr.value);
+                let trigger = parseFloat(attribute.value);
                 if (!isNaN(trigger)) {
                     parent = getRefreshedParent(element);
                     parent.trigger = trigger;
                 }
             }
             else if (data === "-bottom") {
-                let bottom = parseFloat(attr.value);
+                let bottom = parseFloat(attribute.value);
                 if (!isNaN(bottom)) {
                     parent = getRefreshedParent(element);
                     parent.bottomOffset = bottom;
                 }
             }
             else if (data === "-top") {
-                let top = parseFloat(attr.value);
+                let top = parseFloat(attribute.value);
                 if (!isNaN(top)) {
                     parent = getRefreshedParent(element);
                     parent.topOffset = top;
@@ -477,48 +620,60 @@
                 const dataSplit = data.split("-");
                 dataSplit.shift();
                 if (dataSplit.length > 2 || dataSplit.length === 0) {
-                    return;
+                    continue;
                 }
                 if (scrollOptions == null) {
                     scrollOptions = {};
                 }
                 // convert "_[a-z]" to "[A-Z]" and "__" to "_"
-                const propertyName = dataSplit[0].replace(/(?:^|[\Wa-zA-Z])(_[a-zA-Z])/, function (_, g) {
-                    return _.replace(g, g[1].toUpperCase());
-                }).replace("__", "_");
+                const propertyName = dataSplit[0].replace(/_(_|[a-z])/g, function (match, nextCharacter) {
+                    return nextCharacter === "_" ? "_" : nextCharacter.toUpperCase();
+                });
                 if (dataSplit.length === 1 && dataSplit[0].match(/(.*)\(\)$/)) {
                     scrollOptions[propertyName] = [];
                 }
                 else {
-                    const frame = parseFloat(dataSplit[1]);
+                    const frameName = dataSplit[1];
+                    const frame = parseFloat(frameName);
+                    let position;
                     if (!isNaN(frame)) {
-                        scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([[frame, attr.value]]);
+                        position = frame;
                     }
-                    else if (dataSplit[1] === "before") {
-                        scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([["before", attr.value]]);
+                    else if (frameName === "before" || frameName === "after") {
+                        position = frameName;
                     }
-                    else if (dataSplit[1] === "after") {
-                        scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([["after", attr.value]]);
+                    else if (frameName === "extrapolate") {
+                        // the attribute value is ignored
+                        extrapolatedKeys[propertyName] = true;
+                        continue;
                     }
-                    else if (dataSplit[1] === "extrapolate") {
-                        scrollOptions[propertyName] = (scrollOptions[propertyName] || []).concat([
-                            [0, EXTRAPOLATE], [1, EXTRAPOLATE]
-                        ]);
+                    else {
+                        continue;
                     }
+                    (scrollOptions[propertyName] = scrollOptions[propertyName] || []).push([position, attribute.value]);
                 }
             }
-        });
+        }
         if (scrollOptions != null) {
+            const previousParent = element[SCROLL_PARENT];
+            let scrollObject = element[SCROLL_OBJECT];
+            if (scrollObject != null && previousParent != null && previousParent !== parent) {
+                previousParent.remove(scrollObject);
+            }
+            // ScrollObject.refresh refreshes element[SCROLL_PARENT], so the new parent must be set first
             element[SCROLL_PARENT] = parent;
-            if (element[SCROLL_OBJECT]) {
-                element[SCROLL_OBJECT].refresh(scrollOptions);
+            if (scrollObject != null) {
+                scrollObject.refresh(scrollOptions, extrapolatedKeys);
             }
             else {
-                parent.children.push(new ScrollObject(element, scrollOptions));
+                scrollObject = new ScrollObject(element, scrollOptions, extrapolatedKeys);
             }
+            parent.add(scrollObject);
         }
         if (subtree) {
-            Array.prototype.forEach.call(element.children, child => { parse(child, parent); });
+            for (const child of element.children) {
+                parse(child, parent);
+            }
         }
     }
     function add(element, subtree = true) {
@@ -533,66 +688,50 @@
         }
         if (firstScrollParent == null) {
             firstScrollParent = baseScrollParent;
-            if (baseScrollParent.children.length === 0) {
-                scrollParents.push(baseScrollParent);
-            }
         }
         parse(element, firstScrollParent, subtree);
-        if (scrollParents.length > 0) {
+        if (baseScrollParent.children.length > 0) {
+            addScrollParent(baseScrollParent);
+        }
+        if (scrollParents.size > 0) {
             startLoop();
+            requestRender();
         }
     }
     function remove(element, renderFrame = null) {
         let scrollParent = element[SCROLL_PARENT];
         let scrollObject = element[SCROLL_OBJECT];
         if (scrollParent != null) {
-            if (scrollParent.el === element) {
-                let index = -1;
-                if (scrollParents.some((p, i) => {
-                    index = i;
-                    return p === scrollParent;
-                })) {
-                    scrollParents.splice(index, 1);
-                }
+            if (scrollParent.element === element) {
+                deleteScrollParent(scrollParent);
             }
             if (scrollObject != null) {
                 scrollParent.remove(scrollObject);
                 if (renderFrame != null) {
-                    const renders = [];
-                    scrollObject.render(renderFrame, renders, true);
-                    for (let i = renders.length - 1; i >= 0; i--) {
-                        const render = renders[i];
-                        render[0][render[1]] = render[2];
-                    }
+                    applyRenders(scrollObject.render(renderFrame, [], true));
                 }
             }
             delete element[SCROLL_PARENT];
             delete element[SCROLL_OBJECT];
         }
-        Array.prototype.forEach.call(element.children, child => {
+        for (const child of element.children) {
             remove(child, renderFrame);
-        });
-        if (scrollParent === baseScrollParent && baseScrollParent.children.length === 0) {
-            let index = -1;
-            if (scrollParents.some((p, i) => {
-                if (p === baseScrollParent) {
-                    index = i;
-                    return true;
-                }
-                return false;
-            })) {
-                scrollParents.splice(index, 1);
-            }
         }
-        if (scrollParents.length === 0) {
+        if (scrollParent === baseScrollParent && baseScrollParent.children.length === 0) {
+            deleteScrollParent(baseScrollParent);
+        }
+        if (scrollParents.size === 0) {
             endLoop();
         }
     }
 
     var scrollAnimation = /*#__PURE__*/Object.freeze({
         __proto__: null,
+        get METHOD () { return METHOD; },
         add: add,
-        remove: remove
+        remove: remove,
+        requestRender: requestRender,
+        setMethod: setMethod
     });
 
     window.scrollAnimation = scrollAnimation;
