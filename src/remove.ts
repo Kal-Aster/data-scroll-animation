@@ -23,8 +23,8 @@ export default function remove(element: HTMLElement, renderFrame: frames.FramePo
     for (const child of element.children) {
         remove(child as HTMLElement, renderFrame);
     }
-    if (scrollParent === parents.baseScrollParent && parents.baseScrollParent.children.length === 0) {
-        rendering.deleteScrollParent(parents.baseScrollParent);
+    if (scrollParent != null && scrollParent === parents.getBaseScrollParent() && scrollParent.children.length === 0) {
+        rendering.deleteScrollParent(scrollParent);
     }
     if (rendering.scrollParents.size === 0) {
         rendering.endLoop();

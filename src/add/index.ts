@@ -14,12 +14,13 @@ export default function add(element: HTMLElement, subtree: boolean = true): void
         }
         firstScrollParent = firstScrollParent || parent[symbols.SCROLL_PARENT];
     }
+    const baseScrollParent: parents.ScrollParent = parents.getBaseScrollParent();
     if (firstScrollParent == null) {
-        firstScrollParent = parents.baseScrollParent;
+        firstScrollParent = baseScrollParent;
     }
     parse(element, firstScrollParent, subtree);
-    if (parents.baseScrollParent.children.length > 0) {
-        rendering.addScrollParent(parents.baseScrollParent);
+    if (baseScrollParent.children.length > 0) {
+        rendering.addScrollParent(baseScrollParent);
     }
     if (rendering.scrollParents.size > 0) {
         rendering.startLoop();
