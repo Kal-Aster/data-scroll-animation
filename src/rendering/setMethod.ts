@@ -1,6 +1,8 @@
 import endLoop from "./endLoop";
+
+import METHOD from "./enums/METHOD";
+
 import loopState from "./loopState";
-import METHOD from "./METHOD";
 import startLoop from "./startLoop";
 
 export default function setMethod(value: METHOD): void {

@@ -1,5 +1,6 @@
+import METHOD from "./enums/METHOD";
+
 import loopState from "./loopState";
-import METHOD from "./METHOD";
 import requestRender from "./requestRender";
 import scrollListenerOptions from "./scrollListenerOptions";
 

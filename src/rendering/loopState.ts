@@ -1,4 +1,4 @@
-import METHOD from "./METHOD";
+import METHOD from "./enums/METHOD";
 
 const loopState: {
     method: METHOD,

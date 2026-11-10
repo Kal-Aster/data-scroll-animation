@@ -6,6 +6,7 @@ import _NeedUpdateAt from "./types/NeedUpdateAt";
 
 namespace frames {
     export const computeFrames = _computeFrames;
+
     export type FramePosition = _FramePosition;
     export type Keyframe = _Keyframe;
     export type NeedUpdateAt = _NeedUpdateAt;
