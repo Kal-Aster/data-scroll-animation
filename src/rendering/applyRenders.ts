@@ -1,4 +1,4 @@
-import Render from "./Render";
+import Render from "./types/Render";
 
 export default function applyRenders(renders: Render[]): void {
     for (let renderIndex = renders.length - 1; renderIndex >= 0; renderIndex--) {

@@ -2,7 +2,7 @@ import frames from "../../frames";
 import math from "../../math";
 import rendering from "../../rendering";
 import symbols from "../../symbols";
-import AnimatedProperty from "./AnimatedProperty";
+import AnimatedProperty from "./types/AnimatedProperty";
 import canSkipRender from "./canSkipRender";
 import createAnimatedProperty from "./createAnimatedProperty";
 

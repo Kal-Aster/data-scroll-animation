@@ -1,4 +1,4 @@
-import Keyframe from "../Keyframe";
+import Keyframe from "../types/Keyframe";
 
 export default function compareKeyframePositions(firstFrame: Keyframe, secondFrame: Keyframe): number {
     const first = firstFrame[0], second = secondFrame[0];

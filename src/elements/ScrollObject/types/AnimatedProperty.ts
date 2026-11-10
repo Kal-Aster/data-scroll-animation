@@ -1,4 +1,4 @@
-import frames from "../../frames";
+import frames from "../../../frames";
 
 type AnimatedProperty = {
     // object owning the property, null when the path to it is broken

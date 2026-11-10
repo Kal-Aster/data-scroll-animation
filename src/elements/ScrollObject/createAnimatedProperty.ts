@@ -1,5 +1,5 @@
 import frames from "../../frames";
-import AnimatedProperty from "./AnimatedProperty";
+import AnimatedProperty from "./types/AnimatedProperty";
 
 // "style.top" animates the top of element.style, "method()" calls element.method
 export default function createAnimatedProperty(

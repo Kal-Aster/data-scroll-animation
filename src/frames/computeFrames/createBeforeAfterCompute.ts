@@ -1,4 +1,4 @@
-import FramePosition from "../FramePosition";
+import FramePosition from "../types/FramePosition";
 
 export default function createBeforeAfterCompute(beforeValue: string | null, afterValue: string | null): (frame: FramePosition) => string {
     return (frameNumber: FramePosition) => {
