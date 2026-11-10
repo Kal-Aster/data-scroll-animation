@@ -53,6 +53,19 @@ function serveTestPage(rootDirectory, port) {
     };
 }
 
+// CommonJS and UMD export the object itself, not a default property: the declarations say the same
+function exportAssignment() {
+    return {
+        name: "export-assignment",
+        generateBundle(outputOptions, bundle) {
+            const declaration = bundle["index.d.ts"];
+            if (declaration != null && declaration.type === "asset") {
+                declaration.source = String(declaration.source).replace(/^export default (\w+);$/m, "export = $1;");
+            }
+        }
+    };
+}
+
 const library = {
     input: "src/index.ts",
     plugins: [
@@ -60,7 +73,8 @@ const library = {
             include: ["src/**/*.ts"],
             declaration: true,
             declarationDir: "dist"
-        })
+        }),
+        exportAssignment()
     ],
     output: [
         {

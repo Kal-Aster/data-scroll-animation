@@ -4,6 +4,7 @@
 ### Breaking changes
 - the module exports a single default object: `import ScrollAnimation from "data-scroll-animation"` instead of
   `import * as ScrollAnimation` or named imports (the UMD global and `require` are unchanged)
+- only the entry point can be imported: the files inside `dist` are not reachable anymore
 - animations are rendered on events by default (`METHOD.EVENTS`) instead of on every animation frame:
   call `setMethod(METHOD.ANIMATION_FRAME)` to restore the previous behavior
 - before the first keyframe the first value is kept, as the last value after the last keyframe,
@@ -22,6 +23,7 @@
 - the position of a scroll parent ignores the CSS transforms of its ancestors
 
 ### Fixed
+- type declarations matching the module format in every TypeScript module resolution
 - `NaN` position when the parent range has zero height
 - the render is skipped when the scroll jumps across the whole range
 - an element moved to another parent stays among the children of the old one
