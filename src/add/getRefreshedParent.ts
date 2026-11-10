@@ -1,14 +1,14 @@
-import { ScrollParent } from "../parents";
-import { addScrollParent } from "../rendering";
-import { SCROLL_PARENT } from "../symbols";
+import parents from "../parents";
+import rendering from "../rendering";
+import symbols from "../symbols";
 
-export default function getRefreshedParent(element: HTMLElement): ScrollParent {
+export default function getRefreshedParent(element: HTMLElement): parents.ScrollParent {
     // an animated element stores the parent it belongs to, which is an ancestor's:
     // reuse it only if it is the element's own
-    if (element[SCROLL_PARENT] && element[SCROLL_PARENT]!.element === element) {
-        return element[SCROLL_PARENT]!.refresh();
+    if (element[symbols.SCROLL_PARENT] && element[symbols.SCROLL_PARENT]!.element === element) {
+        return element[symbols.SCROLL_PARENT]!.refresh();
     }
-    const parent = new ScrollParent(element);
-    addScrollParent(parent);
+    const parent = new parents.ScrollParent(element);
+    rendering.addScrollParent(parent);
     return parent;
 }

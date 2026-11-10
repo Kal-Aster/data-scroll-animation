@@ -1,42 +1,46 @@
-import type { FramePosition, Keyframe, NeedUpdateAt } from "../../frames";
-import { nullableMax, nullableMin } from "../../math";
-import type { Render } from "../../rendering";
-import { SCROLL_OBJECT, SCROLL_PARENT } from "../../symbols";
+import type frames from "../../frames";
+import math from "../../math";
+import type rendering from "../../rendering";
+import symbols from "../../symbols";
 import type AnimatedProperty from "./AnimatedProperty";
 import canSkipRender from "./canSkipRender";
 import createAnimatedProperty from "./createAnimatedProperty";
 
 export default class ScrollObject {
-    constructor(readonly element: HTMLElement, frames: { [key: string]: Keyframe[] }, extrapolatedKeys: { [key: string]: boolean } = {}) {
-        this.refresh(frames, extrapolatedKeys);
+    constructor(
+        readonly element: HTMLElement,
+        keyframesByKey: { [key: string]: frames.Keyframe[] },
+        extrapolatedKeys: { [key: string]: boolean } = {}
+    ) {
+        this.refresh(keyframesByKey, extrapolatedKeys);
     }
-    refresh(frames: { [key: string]: Keyframe[] }, extrapolatedKeys: { [key: string]: boolean } = {}): ScrollObject {
-        this.element[SCROLL_OBJECT] = this;
+    refresh(keyframesByKey: { [key: string]: frames.Keyframe[] }, extrapolatedKeys: { [key: string]: boolean } = {}): ScrollObject {
+        this.element[symbols.SCROLL_OBJECT] = this;
         this._frames = [];
-        for (let key in frames) {
-            if (!Object.prototype.hasOwnProperty.call(frames, key)) {
+        for (let key in keyframesByKey) {
+            if (!Object.prototype.hasOwnProperty.call(keyframesByKey, key)) {
                 continue;
             }
-            const animatedProperty = createAnimatedProperty(this.element, key, frames[key], extrapolatedKeys[key] === true);
+            const animatedProperty = createAnimatedProperty(this.element, key, keyframesByKey[key], extrapolatedKeys[key] === true);
             if (animatedProperty == null) {
                 continue;
             }
             this._frames.push(animatedProperty);
 
-            const needUpdateAt: NeedUpdateAt = animatedProperty.needUpdateAt;
+            const needUpdateAt: frames.NeedUpdateAt = animatedProperty.needUpdateAt;
             this._needUpdateAt.before = this._needUpdateAt.before || needUpdateAt.before;
-            this._needUpdateAt.start = nullableMin(this._needUpdateAt.start, needUpdateAt.start);
-            this._needUpdateAt.end = nullableMax(this._needUpdateAt.end, needUpdateAt.end);
+            this._needUpdateAt.start = math.nullableMin(this._needUpdateAt.start, needUpdateAt.start);
+            this._needUpdateAt.end = math.nullableMax(this._needUpdateAt.end, needUpdateAt.end);
             this._needUpdateAt.after = this._needUpdateAt.after || needUpdateAt.after;
         }
         this._lastRenderFrame = null;
-        this.element[SCROLL_PARENT]!.refresh();
+        this.element[symbols.SCROLL_PARENT]!.refresh();
         return this;
     }
-    _needUpdateAt: NeedUpdateAt = { before: false, start: null, end: null, after: false };
+    _needUpdateAt: frames.NeedUpdateAt = { before: false, start: null, end: null, after: false };
     _frames: AnimatedProperty[] = [];
-    _lastRenderFrame: FramePosition | null = null;
-    render(frame: FramePosition, renders: Render[], force: boolean = false): Render[] {
+    _lastRenderFrame: frames.FramePosition | null = null;
+    render(frame: frames.FramePosition, renders: rendering.Render[], force: boolean = false): rendering.Render[] {
         if (!force &&
             this._lastRenderFrame === frame
         ) {

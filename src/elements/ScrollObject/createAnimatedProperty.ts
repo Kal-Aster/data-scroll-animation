@@ -1,4 +1,4 @@
-import { computeFrames, type Keyframe } from "../../frames";
+import frames from "../../frames";
 import type AnimatedProperty from "./AnimatedProperty";
 
 // "style.top" animates the top of element.style, "method()" calls element.method:
@@ -6,7 +6,7 @@ import type AnimatedProperty from "./AnimatedProperty";
 export default function createAnimatedProperty(
     element: HTMLElement,
     key: string,
-    keyframes: Keyframe[],
+    keyframes: frames.Keyframe[],
     extrapolate: boolean
 ): AnimatedProperty | null {
     const splitKey: string[] = key.split(".");
@@ -15,7 +15,7 @@ export default function createAnimatedProperty(
         return null;
     }
     const hasFrames: boolean = keyframes.length > 0;
-    const { compute, needUpdateAt, constants } = computeFrames(keyframes, extrapolate);
+    const { compute, needUpdateAt, constants } = frames.computeFrames(keyframes, extrapolate);
     if (
         isFunction &&
         !needUpdateAt.before && needUpdateAt.start == null &&

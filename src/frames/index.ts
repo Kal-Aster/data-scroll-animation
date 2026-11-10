@@ -1,4 +1,13 @@
-export { default as computeFrames } from "./computeFrames";
-export type { default as FramePosition } from "./FramePosition";
-export type { default as Keyframe } from "./Keyframe";
-export type { default as NeedUpdateAt } from "./NeedUpdateAt";
+import computeFramesDefault from "./computeFrames";
+import type FramePositionDefault from "./FramePosition";
+import type KeyframeDefault from "./Keyframe";
+import type NeedUpdateAtDefault from "./NeedUpdateAt";
+
+namespace frames {
+    export const computeFrames = computeFramesDefault;
+    export type FramePosition = FramePositionDefault;
+    export type Keyframe = KeyframeDefault;
+    export type NeedUpdateAt = NeedUpdateAtDefault;
+}
+
+export default frames;

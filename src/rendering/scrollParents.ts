@@ -1,6 +1,6 @@
-import type { ScrollParent } from "../parents";
+import type parents from "../parents";
 
 // parents rendered on every render
-const scrollParents: Set<ScrollParent> = new Set();
+const scrollParents: Set<parents.ScrollParent> = new Set();
 
 export default scrollParents;

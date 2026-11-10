@@ -1,27 +1,27 @@
-import { baseScrollParent, type ScrollParent } from "../parents";
-import { addScrollParent, requestRender, scrollParents, startLoop } from "../rendering";
-import { SCROLL_PARENT } from "../symbols";
+import parents from "../parents";
+import rendering from "../rendering";
+import symbols from "../symbols";
 import parse from "./parse";
 
 export default function add(element: HTMLElement, subtree: boolean = true): void {
     let parent: HTMLElement | null = element;
-    let firstScrollParent: ScrollParent | undefined = element[SCROLL_PARENT];
+    let firstScrollParent: parents.ScrollParent | undefined = element[symbols.SCROLL_PARENT];
     while (parent !== document.body && parent != null) {
         parent = parent.parentElement;
         if (parent == null) {
             return;
         }
-        firstScrollParent = firstScrollParent || parent[SCROLL_PARENT];
+        firstScrollParent = firstScrollParent || parent[symbols.SCROLL_PARENT];
     }
     if (firstScrollParent == null) {
-        firstScrollParent = baseScrollParent;
+        firstScrollParent = parents.baseScrollParent;
     }
     parse(element, firstScrollParent, subtree);
-    if (baseScrollParent.children.length > 0) {
-        addScrollParent(baseScrollParent);
+    if (parents.baseScrollParent.children.length > 0) {
+        rendering.addScrollParent(parents.baseScrollParent);
     }
-    if (scrollParents.size > 0) {
-        startLoop();
-        requestRender();
+    if (rendering.scrollParents.size > 0) {
+        rendering.startLoop();
+        rendering.requestRender();
     }
 }

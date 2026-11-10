@@ -1,13 +1,13 @@
-import type { ScrollObject } from "../../elements";
-import type { FramePosition } from "../../frames";
-import type { Render } from "../../rendering";
-import { SCROLL_PARENT } from "../../symbols";
+import type elements from "../../elements";
+import type frames from "../../frames";
+import type rendering from "../../rendering";
+import symbols from "../../symbols";
 import getDocumentTop from "./getDocumentTop";
 import getScrollAncestors from "./getScrollAncestors";
 
 export default class ScrollParent {
     constructor(readonly element: HTMLElement) {
-        element[SCROLL_PARENT] = this;
+        element[symbols.SCROLL_PARENT] = this;
     }
     refresh(): ScrollParent {
         this._lastPosition = null;
@@ -18,11 +18,11 @@ export default class ScrollParent {
         this._needsRefresh = false;
         this._parents = getScrollAncestors(this.element);
     }
-    children: ScrollObject[] = [];
+    children: elements.ScrollObject[] = [];
     trigger: number = 0;
     topOffset: number = 0;
     bottomOffset: number = 0;
-    _lastPosition: FramePosition | null = null;
+    _lastPosition: frames.FramePosition | null = null;
     _needsRefresh: boolean = true;
     _parents: HTMLElement[] = [];
     // offsetTop ignores the CSS transforms, unlike getBoundingClientRect:
@@ -35,7 +35,7 @@ export default class ScrollParent {
         }
         return top - window.scrollY;
     }
-    render(renders: Render[]): Render[] {
+    render(renders: rendering.Render[]): rendering.Render[] {
         if (this.children.length === 0 || (this.element.clientHeight === 0 && this.element.clientWidth === 0)) {
             return renders;
         }
@@ -47,7 +47,7 @@ export default class ScrollParent {
         const trigger: number = document.documentElement.clientHeight * this.trigger;
         const top: number = rectTop - this.topOffset;
         const bottom: number = rectBottom + this.bottomOffset;
-        let actualPosition: FramePosition;
+        let actualPosition: frames.FramePosition;
         if (bottom - top <= 0) {
             // empty range: avoid dividing by zero, decide only by the trigger
             actualPosition = trigger < top ? "before" : "after";
@@ -64,14 +64,14 @@ export default class ScrollParent {
         }
         return renders;
     }
-    remove(scrollObject: ScrollObject): void {
+    remove(scrollObject: elements.ScrollObject): void {
         const index: number = this.children.findIndex(child => child === scrollObject || child.element === scrollObject.element);
         if (index !== -1) {
             this.children.splice(index, 1);
             this._lastPosition = null;
         }
     }
-    add(scrollObject: ScrollObject): void {
+    add(scrollObject: elements.ScrollObject): void {
         this.remove(scrollObject);
         this.children.push(scrollObject);
         this._lastPosition = null;

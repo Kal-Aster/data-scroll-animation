@@ -1,4 +1,4 @@
-import { nullableMax, nullableMin } from "../../math";
+import math from "../../math";
 import type FramePosition from "../FramePosition";
 import type Keyframe from "../Keyframe";
 import type NeedUpdateAt from "../NeedUpdateAt";
@@ -35,8 +35,8 @@ export default function computeFrames(frames: Keyframe[], extrapolate: boolean =
             continue;
         }
         frameNumbers.push(frame[0]);
-        needUpdateAt.start = nullableMin(needUpdateAt.start, frame[0]);
-        needUpdateAt.end = nullableMax(needUpdateAt.end, frame[0]);
+        needUpdateAt.start = math.nullableMin(needUpdateAt.start, frame[0]);
+        needUpdateAt.end = math.nullableMax(needUpdateAt.end, frame[0]);
         if (!constants) {
             const { staticParts, values } = parseKeyframeValue(frame[1]);
             if (shape == null) {

@@ -1,11 +1,11 @@
-import type { FramePosition, Keyframe } from "../frames";
-import type { ScrollParent } from "../parents";
+import type frames from "../frames";
+import type parents from "../parents";
 import attachScrollObject from "./attachScrollObject";
 import getRefreshedParent from "./getRefreshedParent";
 import toPropertyName from "./toPropertyName";
 
-export default function parse(element: HTMLElement, parent: ScrollParent, subtree: boolean = true): void {
-    let scrollOptions: { [key: string]: Keyframe[] } | null = null;
+export default function parse(element: HTMLElement, parent: parents.ScrollParent, subtree: boolean = true): void {
+    let scrollOptions: { [key: string]: frames.Keyframe[] } | null = null;
     const extrapolatedKeys: { [key: string]: boolean } = {};
     for (const attribute of element.attributes) {
         if (!attribute.name.startsWith("data-scroll-") && !attribute.name.startsWith("data-scroll.")) {
@@ -47,7 +47,7 @@ export default function parse(element: HTMLElement, parent: ScrollParent, subtre
             } else {
                 const frameName: string = dataSplit[1];
                 const frame: number = parseFloat(frameName);
-                let position: FramePosition;
+                let position: frames.FramePosition;
                 if (!isNaN(frame)) {
                     position = frame;
                 } else if (frameName === "before" || frameName === "after") {

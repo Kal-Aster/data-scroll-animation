@@ -1,11 +1,11 @@
-import type { ScrollParent } from "../parents";
+import type parents from "../parents";
 
 const SCROLL_PARENT: unique symbol = Symbol("scroll-parent");
 
 declare global {
     /* tslint:disable-next-line:interface-name */
     interface HTMLElement {
-        [SCROLL_PARENT]: ScrollParent | undefined;
+        [SCROLL_PARENT]: parents.ScrollParent | undefined;
     }
 }
 
