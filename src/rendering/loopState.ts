@@ -6,7 +6,7 @@ const loopState: {
     animationFrameId: number | null,
     resizeObserver: ResizeObserver | null
 } = {
-    method: METHOD.ANIMATION_FRAME,
+    method: METHOD.EVENTS,
     started: false,
     animationFrameId: null,
     resizeObserver: null

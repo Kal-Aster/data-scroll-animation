@@ -61,11 +61,11 @@ ScrollAnimation.remove(document.querySelector("#element")) // removes only the #
 ```
 
 ### Render method
-By default animations are rendered on every animation frame, even when the page is still.
-`setMethod` switches to rendering only when something can have moved a parent:
+By default animations are rendered only when something can have moved a parent.
+`setMethod` switches to rendering on every animation frame, even when the page is still:
 ```js
-ScrollAnimation.setMethod(ScrollAnimation.METHOD.EVENTS); // render on events
-ScrollAnimation.setMethod(ScrollAnimation.METHOD.ANIMATION_FRAME); // render every frame (default)
+ScrollAnimation.setMethod(ScrollAnimation.METHOD.ANIMATION_FRAME); // render every frame
+ScrollAnimation.setMethod(ScrollAnimation.METHOD.EVENTS); // render on events (default)
 ```
 With `METHOD.EVENTS` a render is scheduled on the next frame after:
 - scroll of the page or of any inner scrollable container;

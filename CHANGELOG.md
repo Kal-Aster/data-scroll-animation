@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## [2.0.0] - Unreleased
+### Breaking changes
+- the module exports a single default object: `import ScrollAnimation from "data-scroll-animation"` instead of
+  `import * as ScrollAnimation` or named imports (the UMD global and `require` are unchanged)
+- animations are rendered on events by default (`METHOD.EVENTS`) instead of on every animation frame:
+  call `setMethod(METHOD.ANIMATION_FRAME)` to restore the previous behavior
+- before the first keyframe the first value is kept, as the last value after the last keyframe,
+  instead of extending the first segment: add `data-scroll-(property)-extrapolate` to extend it
+
+### Added
+- `setMethod` and `METHOD` to choose between rendering on events and on every animation frame
+- `requestRender` to schedule a render when a parent moves without scrolling or resizing
+- `data-scroll-(property)-extrapolate` is documented and extends both the first and the last segments
+- horizontally scrolling parents are recognized and parents that can't scroll are ignored
+
+### Changed
+- interpolated values are rounded to 4 decimals
+- numbers like `.5`, `+5` and `1e-3` are recognized, hexadecimal colors are not interpolated
+- a property is rendered only when its value can have changed
+- the position of a scroll parent ignores the CSS transforms of its ancestors
+
+### Fixed
+- `NaN` position when the parent range has zero height
+- the render is skipped when the scroll jumps across the whole range
+- an element moved to another parent stays among the children of the old one
+- `_x` → `X` conversion of property names applied only to the first occurrence
+- methods not called in the final render of `remove`
+- render loop not stopped or restarted correctly
+
 ## [1.3.0] - 2021-10-12
 - skip "html" element in rect calculations
 - emit ts declarations
